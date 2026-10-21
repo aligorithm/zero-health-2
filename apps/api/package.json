@@ -1,0 +1,35 @@
+{
+  "name": "zero-health-api",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Intentionally vulnerable training-lab API for Zero Health. Do not deploy.",
+  "type": "commonjs",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "seed": "tsx src/seed.ts",
+    "verify": "tsx verify.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@types/multer": "^1.4.13",
+    "@types/nodemailer": "^6.4.24",
+    "better-sqlite3": "^12.2.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.10.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^4.17.23",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^24.7.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.7.3"
+  }
+}

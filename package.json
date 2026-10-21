@@ -1,0 +1,15 @@
+{
+  "name": "zero-health",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Intentionally vulnerable health-tech training lab. Do not deploy.",
+  "scripts": {
+    "install:all": "npm install --prefix apps/api && npm install --prefix apps/web",
+    "seed": "npm run seed --prefix apps/api",
+    "api": "npm run dev --prefix apps/api",
+    "web": "npm run dev --prefix apps/web",
+    "build": "npm run build --prefix apps/api && npm run build --prefix apps/web",
+    "start": "npm start --prefix apps/api",
+    "verify": "npm run verify --prefix apps/api"
+  }
+}
