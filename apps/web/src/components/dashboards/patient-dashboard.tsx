@@ -36,6 +36,9 @@ export function PatientDashboard({ user }: { user: User }) {
   const [clinicianId, setClinicianId] = useState('');
   const [visitType, setVisitType] = useState('new-concern');
   const [scheduledFor, setScheduledFor] = useState('');
+  const [slotDate, setSlotDate] = useState('');
+  const [slots, setSlots] = useState<string[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
   const [kind, setKind] = useState('General consultation');
   const [symptoms, setSymptoms] = useState('');
   const [medications, setMedications] = useState('');
@@ -84,6 +87,8 @@ export function PatientDashboard({ user }: { user: User }) {
     setSymptoms('');
     setMedications('');
     setScheduledFor('');
+    setSlotDate('');
+    setSlots([]);
     setError('');
     setBooking(true);
   }
@@ -112,6 +117,21 @@ export function PatientDashboard({ user }: { user: User }) {
     setStep(1);
     await load();
   }
+
+  async function loadSlots(date: string): Promise<void> {
+    setSlotDate(date);
+    setScheduledFor('');
+    setSlotsLoading(true);
+    const { ok, data: d } = await api<{ slots: string[] }>(
+      `/clinicians/${clinicianId}/availability?date=${date}`
+    );
+    setSlotsLoading(false);
+    setSlots(ok && Array.isArray(d.slots) ? d.slots : []);
+  }
+
+  const upcomingDates: string[] = Array.from({ length: 10 }, (_, i) =>
+    new Date(Date.now() + (i + 1) * 86400000).toISOString().slice(0, 10)
+  );
 
   const toCollect = data ? data.rx.filter((r) => r.status === 'pending').length : 0;
   const nextAppt = data
@@ -225,6 +245,7 @@ export function PatientDashboard({ user }: { user: User }) {
                     <option key={c.id} value={c.id}>
                       {c.full_name}
                       {c.specialization ? ` · ${c.specialization}` : ''}
+                      {c.review_count ? ` · ★ ${c.avg_rating} (${c.review_count})` : ''}
                     </option>
                   ))}
                 </select>
@@ -282,14 +303,43 @@ export function PatientDashboard({ user }: { user: User }) {
           {step === 3 && (
             <>
               <div className="field">
-                <label htmlFor="bk_when">Date and time</label>
-                <input
-                  id="bk_when"
-                  type="datetime-local"
-                  value={scheduledFor}
-                  onChange={(e) => setScheduledFor(e.target.value)}
-                />
+                <label>Pick a day</label>
+                <div className="chips">
+                  {upcomingDates.map((d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      className={`chip ${slotDate === d ? 'chip-active' : ''}`}
+                      onClick={() => loadSlots(d)}
+                    >
+                      {new Date(d + 'T00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </button>
+                  ))}
+                </div>
               </div>
+              {slotDate && (
+                <div className="field">
+                  <label>Available times</label>
+                  {slotsLoading ? (
+                    <p className="empty">Loading…</p>
+                  ) : slots.length === 0 ? (
+                    <p className="empty">No free slots that day, try another.</p>
+                  ) : (
+                    <div className="slot-grid">
+                      {slots.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          className={`slot-btn ${scheduledFor === s ? 'slot-active' : ''}`}
+                          onClick={() => setScheduledFor(s)}
+                        >
+                          {s.slice(11)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="field">
                 <label htmlFor="bk_modality">Modality</label>
                 <select id="bk_modality" value={modality} onChange={(e) => setModality(e.target.value)}>

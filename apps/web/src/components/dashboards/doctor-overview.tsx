@@ -49,7 +49,8 @@ export function DoctorOverview({ user }: { user: User }) {
   }
 
   const upcoming = (appts || []).filter((a) => a.status === 'scheduled');
-  const activeRx = queue.filter((r) => r.status === 'active').length;
+  const refills = queue.filter((r) => r.status === 'refill-requested');
+  const activeRx = queue.filter((r) => r.status === 'pending').length;
 
   return (
     <>
@@ -87,6 +88,31 @@ export function DoctorOverview({ user }: { user: User }) {
               }}
             />
           </div>
+          {refills.length > 0 && (
+            <div className="panel">
+              <h2>Refill requests</h2>
+              {refills.map((r) => (
+                <div className="row" key={r.id}>
+                  <div>
+                    <div className="t">
+                      {r.medication} · {r.patient_name || 'Patient'}
+                    </div>
+                    <div className="s">{r.dosage}</div>
+                  </div>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={async () => {
+                      await api(`/prescriptions/${r.id}/reissue`, { method: 'POST' });
+                      await load();
+                    }}
+                  >
+                    Re-issue
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="panel">
             <h2>Patient panel</h2>
             <PatientsPanel rows={panel} role={user.role} />

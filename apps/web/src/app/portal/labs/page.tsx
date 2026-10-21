@@ -38,19 +38,19 @@ export default function LabsPage() {
           <Empty text="No results yet." />
         ) : (
           rows.map((l) => (
-            <a className="row row-link" key={l.id} href={`/portal/labs/${l.id}`}>
+            <div className="row" key={l.id}>
               <div>
-                <div className="t">
+                <a className="t row-title-link" href={`/portal/labs/${l.id}`}>
                   {l.panel}
                   {isStaff && l.patient_name ? ` · ${l.patient_name}` : ''}
-                </div>
+                </a>
                 <div className="s">
                   {l.value}
                   {l.recorded_by_name ? ` · ${l.recorded_by_name}` : ''} · {prettyWhen(l.created_at)}
                 </div>
               </div>
               {l.image_path && <LabImage name={l.image_path} alt={l.panel} />}
-            </a>
+            </div>
           ))
         )}
       </div>

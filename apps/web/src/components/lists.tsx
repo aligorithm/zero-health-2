@@ -94,19 +94,19 @@ export function LabList({ rows, showImages = false }: { rows: LabResult[]; showI
   return (
     <>
       {rows.map((l) => (
-        <a className="row row-link" key={l.id} href={`/portal/labs/${l.id}`}>
+        <div className="row" key={l.id}>
           <div>
-            <div className="t">
+            <a className="t row-title-link" href={`/portal/labs/${l.id}`}>
               {l.panel}
               {l.patient_name ? ` · ${l.patient_name}` : ''}
-            </div>
+            </a>
             <div className="s">
               {l.value}
               {l.interpretation ? ` · ${l.interpretation}` : ''}
             </div>
           </div>
           {showImages && l.image_path && <LabImage name={l.image_path} alt={l.panel} />}
-        </a>
+        </div>
       ))}
     </>
   );

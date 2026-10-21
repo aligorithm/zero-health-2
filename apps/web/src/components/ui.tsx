@@ -54,6 +54,8 @@ const STATUS_LABELS: Record<string, string> = {
   collected: 'Collected',
   cancelled: 'Cancelled',
   scheduled: 'Scheduled',
+  'refill-requested': 'Refill requested',
+  completed: 'Completed',
 };
 
 export function Pill({ status, label }: { status: string; label?: string }) {

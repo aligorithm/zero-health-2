@@ -101,6 +101,22 @@ export default function AppointmentDetailPage() {
     setNotice('Appointment rescheduled.');
   }
 
+  async function saveRating(value: number): Promise<void> {
+    if (!appt) return;
+    setBusy(true);
+    setNotice('');
+    const { ok, data } = await api<Appointment>(`/appointments/${appt.id}/rating`, {
+      method: 'PUT',
+      body: { rating: value },
+    });
+    setBusy(false);
+    if (!ok) {
+      setNotice(data.error || 'Could not save rating.');
+      return;
+    }
+    setAppt(data);
+  }
+
   async function cancel(): Promise<void> {
     if (!appt) return;
     setBusy(true);
@@ -231,6 +247,31 @@ export default function AppointmentDetailPage() {
           )}
         </h2>
         {appt.outcome ? <p className="empty" style={{ marginBottom: 0 }}>{appt.outcome}</p> : <p className="empty">No outcome recorded yet.</p>}
+      </div>
+
+      <div className="panel">
+        <h2>Visit rating</h2>
+        {isPatient && appt.patient_id === user.id ? (
+          <div className="stars" role="radiogroup" aria-label="Rate your visit">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={`star ${(appt.rating || 0) >= n ? 'star-filled' : ''}`}
+                onClick={() => saveRating(n)}
+                aria-label={`${n} star${n > 1 ? 's' : ''}`}
+                disabled={busy}
+              >
+                ★
+              </button>
+            ))}
+            {appt.rating ? <span className="s" style={{ marginLeft: 8 }}>{appt.rating} of 5</span> : <span className="s" style={{ marginLeft: 8 }}>Tap to rate</span>}
+          </div>
+        ) : appt.rating ? (
+          <p className="empty" style={{ marginBottom: 0 }}>{'★'.repeat(appt.rating)} ({appt.rating} of 5)</p>
+        ) : (
+          <p className="empty">Not rated yet.</p>
+        )}
       </div>
 
       <div className="panel">

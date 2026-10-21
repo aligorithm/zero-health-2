@@ -206,6 +206,20 @@ function seed(): void {
        (patient_id, clinician_id, scheduled_for, kind, modality, status, notes)
      VALUES (?, ?, ?, ?, ?, ?, ?)`
   );
+  const insertPastAppt = db.prepare<[number, number, string, string, string, string, number]>(
+    `INSERT INTO appointments
+       (patient_id, clinician_id, scheduled_for, kind, modality, status, patient_feedback, rating)
+     VALUES (?, ?, ?, ?, ?, 'completed', ?, ?)`
+  );
+  insertPastAppt.run(
+    ids['patient.alpha@example.test'],
+    ids['dr.one@example.test'],
+    '2026-10-05 11:00',
+    'Annual check-up',
+    'in-person',
+    'Thorough and kind, answered every question.',
+    5
+  );
   insertAppt.run(
     ids['patient.alpha@example.test'],
     ids['dr.one@example.test'],

@@ -59,6 +59,7 @@ export interface Appointment {
   notes: string | null;
   outcome: string | null;
   patient_feedback: string | null;
+  rating?: number | null;
 }
 
 export interface Message {
@@ -112,6 +113,8 @@ export interface Doctor {
 export interface Clinician extends Doctor {
   role: string;
   specialization?: string | null;
+  avg_rating?: number | null;
+  review_count?: number;
 }
 
 export interface Conversation {

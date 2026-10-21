@@ -33,16 +33,20 @@ The learning objective is always *find it and fix it*, never *maximize damage*.
 - **Portals by role**: patient, doctor, pharmacist, lab technician, admin.
 - **Prescriptions**: doctors prescribe with frequency, duration, and
   instructions. Every order gets a collection code the patient shows at the
-  pharmacy; pharmacists verify the code and mark the order collected. Orders
-  move through pending, collected, or cancelled states.
-- **Appointments**: patients book through a guided intake (visit type, new
-  or existing concern, symptoms, current medication) for consultations with a
-  doctor or lab tests with a lab technician, then reschedule or cancel from
-  the appointment detail page. Clinicians review the intake, chart notes, and
-  record post-visit outcomes and follow-ups; patients leave feedback.
+  pharmacy; pharmacists verify the code and mark the order collected. Patients
+  can request refills of collected orders, which prescribers re-issue with a
+  fresh collection code.
+- **Appointments**: patients book from real availability (30-minute slots,
+  booked times disappear) through a guided intake (visit type, new or
+  existing concern, symptoms, current medication), for consultations with a
+  doctor or lab tests with a lab technician. Reschedule or cancel from the
+  appointment detail page. Clinicians review the intake, chart notes, record
+  outcomes and follow-ups; patients leave feedback and star ratings that
+  surface on clinician profiles.
 - **Lab results**: doctors and lab technicians record results with an
-  optional result image (png/jpg/gif/webp upload), served back through the
-  API and viewable full-size from the records page.
+  optional result image (png/jpg/gif/webp upload). Each result has a detail
+  page with the image, value, clinical interpretation, collection date, and
+  the staff member who performed it.
 - **Messaging**: threaded conversations between patients and staff, with
   unread badges and live updates.
 - **Zero Agent**: a chatbot available on every portal page that answers

@@ -81,6 +81,14 @@ label{display:block;font-size:13px;color:var(--text-dim);margin-bottom:6px;font-
 .pill.active,.pill.scheduled,.pill.collected{background:rgba(52,211,153,.14);color:var(--green)}
 .pill.pending,.pill.review{background:rgba(251,191,36,.14);color:var(--amber)}
 .pill.cancelled{background:rgba(248,113,113,.14);color:var(--red)}
+.pill.completed{background:rgba(167,139,250,.16);color:var(--violet)}
+.slot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px}
+.slot-btn{background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-dim);padding:8px 4px;font-size:13px;cursor:pointer;font-family:'Inter',system-ui,sans-serif}
+.slot-btn:hover{border-color:var(--violet);color:var(--text)}
+.slot-active{background:rgba(139,92,246,.16);border-color:rgba(139,92,246,.5);color:var(--violet);font-weight:600}
+.stars{display:flex;align-items:center;gap:2px}
+.star{background:none;border:none;font-size:24px;color:var(--text-faint);cursor:pointer;padding:2px;line-height:1}
+.star-filled{color:#FBBF24}
 .nav-badge{background:var(--violet-bright);color:#fff;font-size:11px;font-weight:700;border-radius:100px;min-width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;padding:0 6px;flex-shrink:0}
 .row-link{cursor:pointer;transition:background .12s}
 .row-link:hover{background:var(--surface-2)}

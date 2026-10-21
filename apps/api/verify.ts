@@ -165,7 +165,7 @@ async function main(): Promise<void> {
     'POST',
     '/api/prescriptions',
     {
-      patient_id: 3,
+      patient_id: 1,
       medication: 'Verifyamol',
       dosage: '5mg daily',
       frequency: 'once daily',
@@ -203,6 +203,27 @@ async function main(): Promise<void> {
   const collectAgain = await req('POST', `/api/prescriptions/${doctorRx.body.id}/collect`, { code: doctorRx.body.collection_code }, pharm);
   check('double collect rejected', collectAgain.status === 409, `HTTP ${collectAgain.status}`);
 
+  // --- refill lifecycle on the collected prescription ------------------------
+
+  const refill = await req('POST', `/api/prescriptions/${doctorRx.body.id}/refill`, undefined, patient.token);
+  check('patient requests refill', refill.status === 200 && refill.body?.status === 'refill-requested');
+
+  const refillAgain = await req('POST', `/api/prescriptions/${doctorRx.body.id}/refill`, undefined, patient.token);
+  check('duplicate refill rejected', refillAgain.status === 409, `HTTP ${refillAgain.status}`);
+
+  const refillAsOther = await req('POST', '/api/prescriptions/2/refill', undefined, patient.token);
+  check('cannot request refill for another patient', refillAsOther.status === 403, `HTTP ${refillAsOther.status}`);
+
+  const reissueAsPatient = await req('POST', `/api/prescriptions/${doctorRx.body.id}/reissue`, undefined, patient.token);
+  check('patient cannot reissue', reissueAsPatient.status === 403, `HTTP ${reissueAsPatient.status}`);
+
+  const reissue = await req('POST', `/api/prescriptions/${doctorRx.body.id}/reissue`, undefined, doctor.token);
+  check(
+    'doctor reissues with a fresh code',
+    reissue.status === 200 && reissue.body?.status === 'pending' && typeof reissue.body?.collection_code === 'string' && reissue.body.collection_code.length === 6,
+    `id ${reissue.body?.id}, code ${reissue.body?.collection_code}`
+  );
+
   // --- clinicians + appointments -------------------------------------------
 
   const clinicians = await req('GET', '/api/clinicians', undefined, patient.token);
@@ -213,6 +234,29 @@ async function main(): Promise<void> {
   check(
     'clinician profiles carry specialization',
     clinicians.status === 200 && clinicians.body.some((c: any) => c.role === 'doctor' && c.specialization === 'Family Medicine')
+  );
+
+  check(
+    'clinician list carries rating aggregate',
+    clinicians.status === 200 && clinicians.body.some((c: any) => c.full_name === 'Dr. Sarah Chen' && c.avg_rating === 5 && c.review_count >= 1)
+  );
+
+  const availability = await req('GET', `/api/clinicians/${doctorId}/availability?date=2026-12-01`, undefined, patient.token);
+  check(
+    'availability slots generated',
+    availability.status === 200 && Array.isArray(availability.body?.slots) && availability.body.slots.length === 16 && availability.body.slots.includes('2026-12-01T09:00')
+  );
+
+  await req(
+    'POST',
+    '/api/appointments',
+    { clinician_id: doctorId, scheduled_for: '2026-12-01T09:00', kind: 'Slot test' },
+    patient.token
+  );
+  const availabilityAfter = await req('GET', `/api/clinicians/${doctorId}/availability?date=2026-12-01`, undefined, patient.token);
+  check(
+    'booked slots disappear from availability',
+    availabilityAfter.status === 200 && availabilityAfter.body.slots.length === 15 && !availabilityAfter.body.slots.includes('2026-12-01T09:00')
   );
 
   const doctorId = clinicians.body.find((c: any) => c.role === 'doctor').id;
@@ -271,6 +315,13 @@ async function main(): Promise<void> {
 
   const feedback = await req('PUT', `/api/appointments/${book.body.id}/notes`, { patient_feedback: 'Great synthetic visit.' }, patient.token);
   check('patient adds feedback', feedback.status === 200 && feedback.body?.patient_feedback === 'Great synthetic visit.');
+
+  const badRating = await req('PUT', `/api/appointments/${book.body.id}/rating`, { rating: 9 }, patient.token);
+  check('invalid rating rejected', badRating.status === 400, `HTTP ${badRating.status}`);
+  const ratingAsDoctor = await req('PUT', `/api/appointments/${book.body.id}/rating`, { rating: 5 }, doctor.token);
+  check('staff cannot rate visits', ratingAsDoctor.status === 403, `HTTP ${ratingAsDoctor.status}`);
+  const rating = await req('PUT', `/api/appointments/${book.body.id}/rating`, { rating: 4 }, patient.token);
+  check('patient rates visit', rating.status === 200 && rating.body?.rating === 4);
 
   const cancel = await req('PUT', `/api/appointments/${bookLab.body.id}/cancel`, undefined, patient.token);
   check('patient cancels lab appointment', cancel.status === 200 && cancel.body?.status === 'cancelled');
