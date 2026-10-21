@@ -38,6 +38,7 @@ export interface LabResult {
   interpretation: string | null;
   image_path: string | null;
   recorded_by?: number | null;
+  recorded_by_name?: string | null;
   created_at: string;
   patient_name?: string | null;
 }

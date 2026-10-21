@@ -214,7 +214,11 @@ router.get('/me/prescriptions', authenticate, (req, res) => {
 
 router.get('/me/lab-results', authenticate, (req, res) => {
   const rows = db
-    .prepare<[number], LabResultRow>('SELECT * FROM lab_results WHERE patient_id = ?')
+    .prepare<[number], LabResultWithNamesRow>(
+      `SELECT l.*, u.full_name AS recorded_by_name
+         FROM lab_results l LEFT JOIN users u ON u.id = l.recorded_by
+        WHERE l.patient_id = ? ORDER BY l.id`
+    )
     .all(req.user!.id);
   res.json(rows);
 });
@@ -456,8 +460,10 @@ router.get('/lab-results', authenticate, (req, res) => {
   }
   const rows = db
     .prepare<[], LabResultWithNamesRow>(
-      `SELECT l.*, u.full_name AS patient_name
-         FROM lab_results l LEFT JOIN users u ON u.id = l.patient_id
+      `SELECT l.*, p.full_name AS patient_name, s.full_name AS recorded_by_name
+         FROM lab_results l
+         LEFT JOIN users p ON p.id = l.patient_id
+         LEFT JOIN users s ON s.id = l.recorded_by
         ORDER BY l.id DESC`
     )
     .all();
@@ -507,7 +513,15 @@ Zero Health`
 });
 
 router.get('/lab-results/:id', authenticate, (req, res) => {
-  const row = db.prepare<[string], LabResultRow>('SELECT * FROM lab_results WHERE id = ?').get(req.params.id);
+  const row = db
+    .prepare<[string], LabResultWithNamesRow>(
+      `SELECT l.*, p.full_name AS patient_name, s.full_name AS recorded_by_name
+         FROM lab_results l
+         LEFT JOIN users p ON p.id = l.patient_id
+         LEFT JOIN users s ON s.id = l.recorded_by
+        WHERE l.id = ?`
+    )
+    .get(req.params.id);
   if (!row) {
     res.status(404).json({ error: 'not found' });
     return;

@@ -337,3 +337,4 @@ tr.clickable:hover td{background:var(--surface-2)}
   .portals-inner{grid-template-columns:1fr}
   .l-navlinks{display:none}
 }
+.lab-detail-image img{display:block;max-width:100%;border-radius:12px;border:1px solid var(--border)}

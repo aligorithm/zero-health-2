@@ -94,7 +94,7 @@ export function LabList({ rows, showImages = false }: { rows: LabResult[]; showI
   return (
     <>
       {rows.map((l) => (
-        <div className="row" key={l.id}>
+        <a className="row row-link" key={l.id} href={`/portal/labs/${l.id}`}>
           <div>
             <div className="t">
               {l.panel}
@@ -106,7 +106,7 @@ export function LabList({ rows, showImages = false }: { rows: LabResult[]; showI
             </div>
           </div>
           {showImages && l.image_path && <LabImage name={l.image_path} alt={l.panel} />}
-        </div>
+        </a>
       ))}
     </>
   );

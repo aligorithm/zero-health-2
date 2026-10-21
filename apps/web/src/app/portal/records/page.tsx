@@ -46,7 +46,12 @@ export default function RecordsPage() {
         {rx === null ? <p className="empty">Loading…</p> : <RxList rows={rx} showCode />}
       </div>
       <div className="panel">
-        <h2>Lab results</h2>
+        <h2>
+          Lab results
+          <a className="s" style={{ fontWeight: 400 }} href="/portal/labs">
+            All results →
+          </a>
+        </h2>
         {labs === null ? <p className="empty">Loading…</p> : <LabList rows={labs} showImages />}
       </div>
     </>

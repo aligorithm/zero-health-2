@@ -50,6 +50,7 @@ export interface LabResultRow {
 
 export interface LabResultWithNamesRow extends LabResultRow {
   patient_name?: string | null;
+  recorded_by_name?: string | null;
 }
 
 export interface MessageRow {
