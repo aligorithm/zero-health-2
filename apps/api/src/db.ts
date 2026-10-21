@@ -84,6 +84,7 @@ export interface AppointmentRow {
   notes: string | null;
   outcome: string | null;
   patient_feedback: string | null;
+  rating: number | null;
 }
 
 export interface AppointmentWithClinicianRow extends AppointmentRow {
@@ -266,6 +267,7 @@ export function init(): void {
   addColumnIfMissing('appointments', 'visit_type', 'visit_type TEXT');
   addColumnIfMissing('appointments', 'symptoms', 'symptoms TEXT');
   addColumnIfMissing('appointments', 'current_medications', 'current_medications TEXT');
+  addColumnIfMissing('appointments', 'rating', 'rating INTEGER');
   addColumnIfMissing('appointments', 'patient_feedback', 'patient_feedback TEXT');
   addColumnIfMissing('lab_results', 'image_path', 'image_path TEXT');
   addColumnIfMissing('lab_results', 'recorded_by', 'recorded_by INTEGER');

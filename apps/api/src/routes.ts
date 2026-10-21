@@ -259,11 +259,45 @@ router.get('/doctors', authenticate, (_req, res) => {
 
 router.get('/clinicians', authenticate, (_req, res) => {
   const rows = db
-    .prepare<[], ClinicianRow>(
-      "SELECT id, full_name, email, role, specialization FROM users WHERE role IN ('doctor', 'labtech') ORDER BY role, id"
+    .prepare<[], ClinicianRow & { avg_rating: number | null; review_count: number }>(
+      `SELECT u.id, u.full_name, u.email, u.role, u.specialization,
+              (SELECT ROUND(AVG(a.rating), 1) FROM appointments a WHERE a.clinician_id = u.id AND a.rating IS NOT NULL) AS avg_rating,
+              (SELECT COUNT(*) FROM appointments a WHERE a.clinician_id = u.id AND a.rating IS NOT NULL) AS review_count
+         FROM users u WHERE u.role IN ('doctor', 'labtech') ORDER BY role, u.id`
     )
     .all();
   res.json(rows);
+});
+
+// Bookable slots for a clinician on a given day: 30-minute slots between
+// 09:00 and 17:00 with already-booked times removed.
+router.get('/clinicians/:id/availability', authenticate, (req, res) => {
+  const clinician = db
+    .prepare<[string], UserRow>("SELECT * FROM users WHERE id = ? AND role IN ('doctor', 'labtech')")
+    .get(req.params.id);
+  if (!clinician) {
+    res.status(404).json({ error: 'clinician not found' });
+    return;
+  }
+  const date = String(req.query.date || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    res.status(400).json({ error: 'date required as YYYY-MM-DD' });
+    return;
+  }
+  const taken = db
+    .prepare<[number, string], { scheduled_for: string }>(
+      "SELECT scheduled_for FROM appointments WHERE clinician_id = ? AND status = 'scheduled' AND scheduled_for LIKE ?"
+    )
+    .all(clinician.id, date + '%')
+    .map((r) => r.scheduled_for);
+  const slots: string[] = [];
+  for (let h = 9; h < 17; h++) {
+    for (const m of ['00', '30']) {
+      const when = `${date}T${String(h).padStart(2, '0')}:${m}`;
+      if (!taken.includes(when)) slots.push(when);
+    }
+  }
+  res.json({ date, clinician_id: clinician.id, slots });
 });
 
 router.get('/patients', authenticate, (_req, res) => {
@@ -417,6 +451,91 @@ router.post('/prescriptions/:id/collect', authenticate, (req, res) => {
     )
     .get(req.params.id);
   res.json(updated);
+});
+
+router.post('/prescriptions/:id/refill', authenticate, (req, res) => {
+  const rx = db.prepare<[string], PrescriptionRow>('SELECT * FROM prescriptions WHERE id = ?').get(req.params.id);
+  if (!rx) {
+    res.status(404).json({ error: 'not found' });
+    return;
+  }
+  if (req.user!.role !== 'patient' || rx.patient_id !== req.user!.id) {
+    res.status(403).json({ error: 'only the patient can request a refill' });
+    return;
+  }
+  if (rx.status !== 'collected') {
+    res.status(409).json({ error: 'only collected prescriptions can be refilled' });
+    return;
+  }
+  db.prepare("UPDATE prescriptions SET status = 'refill-requested' WHERE id = ?").run(rx.id);
+  const prescriber = rx.prescriber_id
+    ? db.prepare<[number], UserRow>('SELECT * FROM users WHERE id = ?').get(rx.prescriber_id)
+    : undefined;
+  if (prescriber) {
+    void sendMail(
+      prescriber.email,
+      'Refill request',
+      `Hi ${prescriber.full_name},
+
+A patient has requested a refill of ${rx.medication} (${rx.dosage}). Review it from your portal.
+
+Zero Health`
+    );
+  }
+  const updated = db.prepare<[number], PrescriptionRow>('SELECT * FROM prescriptions WHERE id = ?').get(rx.id);
+  res.json(updated);
+});
+
+// prescriber re-issues: creates a fresh order with a new collection code
+router.post('/prescriptions/:id/reissue', authenticate, (req, res) => {
+  const rx = db.prepare<[string], PrescriptionRow>('SELECT * FROM prescriptions WHERE id = ?').get(req.params.id);
+  if (!rx) {
+    res.status(404).json({ error: 'not found' });
+    return;
+  }
+  if (!['doctor', 'admin'].includes(req.user!.role)) {
+    res.status(403).json({ error: 'only a prescriber may reissue an order' });
+    return;
+  }
+  if (rx.status !== 'refill-requested') {
+    res.status(409).json({ error: 'only refill requests can be reissued' });
+    return;
+  }
+  const code = generateCollectionCode();
+  const info = db
+    .prepare<[number, number, string, string, string | null, string | null, string | null, string, string]>(
+      `INSERT INTO prescriptions
+         (patient_id, prescriber_id, medication, dosage, frequency, duration, instructions, status, collection_code, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, 'Refill of prescription ' || ?)`
+    )
+    .run(
+      rx.patient_id,
+      req.user!.id,
+      rx.medication,
+      rx.dosage,
+      rx.frequency,
+      rx.duration,
+      rx.instructions,
+      code,
+      String(rx.id)
+    );
+  db.prepare("UPDATE prescriptions SET status = 'collected' WHERE id = ?").run(rx.id);
+  const created = db.prepare<[number], PrescriptionRow>('SELECT * FROM prescriptions WHERE id = ?').get(
+    Number(info.lastInsertRowid)
+  );
+  const patientUser = db.prepare<[number], UserRow>('SELECT * FROM users WHERE id = ?').get(rx.patient_id);
+  if (patientUser) {
+    void sendMail(
+      patientUser.email,
+      'Your refill is ready',
+      `Hi ${patientUser.full_name},
+
+Your refill of ${rx.medication} has been approved and sent to the pharmacy. Show your new collection code in the portal when you pick it up.
+
+Zero Health`
+    );
+  }
+  res.json(created);
 });
 
 router.get('/prescriptions/:id', authenticate, (req, res) => {
@@ -785,6 +904,27 @@ router.put('/appointments/:id/notes', authenticate, (req, res) => {
     return;
   }
 
+  res.json(getAppointmentFull(req.params.id));
+});
+
+// --- Appointment rating -----------------------------------------------------
+
+router.put('/appointments/:id/rating', authenticate, (req, res) => {
+  const appt = getAppointmentFull(req.params.id);
+  if (!appt) {
+    res.status(404).json({ error: 'not found' });
+    return;
+  }
+  if (req.user!.role !== 'patient' || appt.patient_id !== req.user!.id) {
+    res.status(403).json({ error: 'only the patient can rate their visit' });
+    return;
+  }
+  const { rating } = (req.body || {}) as { rating?: number };
+  if (typeof rating !== 'number' || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+    res.status(400).json({ error: 'rating must be an integer from 1 to 5' });
+    return;
+  }
+  db.prepare<[number, number]>('UPDATE appointments SET rating = ? WHERE id = ?').run(rating, appt.id);
   res.json(getAppointmentFull(req.params.id));
 });
 
