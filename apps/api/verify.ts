@@ -241,6 +241,8 @@ async function main(): Promise<void> {
     clinicians.status === 200 && clinicians.body.some((c: any) => c.full_name === 'Dr. Sarah Chen' && c.avg_rating === 5 && c.review_count >= 1)
   );
 
+  const doctorId = clinicians.body.find((c: any) => c.role === 'doctor').id;
+  const labtechId = clinicians.body.find((c: any) => c.role === 'labtech').id;
   const availability = await req('GET', `/api/clinicians/${doctorId}/availability?date=2026-12-01`, undefined, patient.token);
   check(
     'availability slots generated',
@@ -259,8 +261,6 @@ async function main(): Promise<void> {
     availabilityAfter.status === 200 && availabilityAfter.body.slots.length === 15 && !availabilityAfter.body.slots.includes('2026-12-01T09:00')
   );
 
-  const doctorId = clinicians.body.find((c: any) => c.role === 'doctor').id;
-  const labtechId = clinicians.body.find((c: any) => c.role === 'labtech').id;
 
   const book = await req(
     'POST',
@@ -511,6 +511,83 @@ async function main(): Promise<void> {
   check('doctor can edit specialization', doctorProfile.status === 200 && doctorProfile.body?.specialization === 'Family Medicine');
   const patientSpec = await req('PATCH', '/api/me', { specialization: 'Cardiology', phone: '+1-555-0142' }, patient.token);
   check('patient cannot edit specialization', patientSpec.status === 200 && patientSpec.body?.specialization === null);
+
+  // --- OWASP category coverage ------------------------------------------------
+
+  // A03: SQL injection in prescription search
+  const benignSearch = await req('GET', '/api/search?q=Lisinopril&type=prescriptions', undefined, pharm);
+  const injectedSearch = await req(
+    'GET',
+    '/api/search?q=' + encodeURIComponent("x' OR 1=1 --") + '&type=prescriptions',
+    undefined,
+    pharm
+  );
+  check(
+    'SQL injection in prescription search',
+    benignSearch.status === 200 &&
+      injectedSearch.status === 200 &&
+      (injectedSearch.body?.results?.length || 0) > (benignSearch.body?.results?.length || 0) + 1,
+    `benign ${benignSearch.body?.results?.length} rows vs injected ${injectedSearch.body?.results?.length} rows`
+  );
+
+  // A05: debug endpoint without auth
+  const debug = await req('GET', '/api/debug');
+  check(
+    'debug endpoint leaks without auth',
+    debug.status === 200 && typeof debug.body?.env?.jwt_secret_is_default === 'boolean' && Array.isArray(debug.body?.uploads)
+  );
+
+  // A06: prototype pollution through the vulnerable merge
+  const pollution = await req(
+    'POST',
+    '/api/settings/merge',
+    { updates: [{ path: '__proto__.isAdmin', value: true }, { path: 'theme', value: 'light' }] },
+    patient.token
+  );
+  check(
+    'prototype pollution via vulnerable dependency',
+    pollution.status === 200 && pollution.body?.prototype_polluted === true && pollution.body?.settings?.theme === 'light'
+  );
+
+  // A10: webhook SSRF surface. Any internal URL is accepted, and the server
+  // POSTs event data to it when the hooked user receives a message.
+  const hookListener: { hits: Array<{ url: string; body: string }> } = { hits: [] };
+  const hookServer = http
+    .createServer((hreq, hres) => {
+      let b = '';
+      hreq.on('data', (c) => (b += c));
+      hreq.on('end', () => {
+        hookListener.hits.push({ url: hreq.url || '', body: b });
+        hres.statusCode = 200;
+        hres.end('{}');
+      });
+    })
+    .listen(4141, '127.0.0.1');
+  await new Promise<void>((r) => hookServer.once('listening', () => r()));
+
+  const hookRegister = await req(
+    'POST',
+    '/api/settings/webhook',
+    { url: 'http://127.0.0.1:4141/inbox' },
+    doctor.token
+  );
+  check('webhook accepts arbitrary internal URL', hookRegister.status === 200);
+
+  const hookForm = multipart({ recipient_id: String(doctor.user.id), body: 'Trigger the webhook.' });
+  await req('POST', '/api/messages', hookForm.body, patient.token, { 'Content-Type': hookForm.contentType });
+  await new Promise<void>((r) => setTimeout(r, 600));
+  check(
+    'server fires webhook to the attacker-chosen URL',
+    hookListener.hits.some((h) => h.url === '/inbox' && h.body.includes('message')),
+    `${hookListener.hits.length} hit(s)`
+  );
+
+  await req('DELETE', '/api/settings/webhook', undefined, doctor.token);
+  hookServer.close();
+
+  // P1: tracking pixel
+  const track = await req('POST', '/api/track', { path: '/portal/records' }, patient.token);
+  check('tracking beacon records identity + page', track.status === 204);
 
   // --- password reset --------------------------------------------------------
 

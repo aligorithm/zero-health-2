@@ -8,20 +8,22 @@ Welltok and Change Healthcare incidents being textbook scale examples).
 ## What it is
 
 The API pins `lodash@4.17.15`, which carries published prototype-pollution
-CVEs (CVE-2020-8203, CVE-2019-10744 among them), and uses it on
-`POST /api/settings/merge`:
+CVEs (CVE-2020-8203, CVE-2019-10744 among them), and uses `_.set` on
+`POST /api/settings/merge` to apply client-supplied settings paths:
 
 ```ts
-import lodashMerge from 'lodash/merge';
+import lodashSet from 'lodash/set';
 // ...
-lodashMerge(settings, req.body || {});
+lodashSet(settings, u.path, u.value);
 ```
 
-A body like `{"__proto__": {"isAdmin": true}}` pollutes `Object.prototype`
-inside the server process. The endpoint returns `prototype_polluted: true`
-as an observable probe, but the real danger is polluted values silently
-altering behavior elsewhere in the process (feature flags, `isAdmin` checks,
-option defaults).
+A path like `__proto__.isAdmin` writes straight through to `Object.prototype`
+inside the server process (the same primitive the published PoCs use; a plain
+`__proto__` JSON key fed to `_.merge` does not pollute, because it only swaps
+the merged object's prototype). The endpoint returns `prototype_polluted:
+true` as an observable probe, but the real danger is polluted values
+silently altering behavior elsewhere in the process (feature flags,
+`isAdmin` checks, option defaults).
 
 ## How to find it
 

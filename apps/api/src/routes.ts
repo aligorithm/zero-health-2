@@ -25,7 +25,7 @@ import type {
   WebhookRow,
 } from './db';
 import { runAgent, llmConfigured } from './agent';
-import lodashMerge from 'lodash/merge';
+import lodashSet from 'lodash/set';
 import { sendMail, mailerConfigured, WEB_BASE_URL } from './mailer';
 
 const router = Router();
@@ -1466,12 +1466,16 @@ function fireWebhook(userId: number, payload: Record<string, unknown>): void {
   }).catch(() => {});
 }
 
-// Settings merge: merges a client-supplied JSON blob into the settings object
-// using lodash 4.17.15 (known prototype-pollution CVEs).
+// Settings updates: applies client-supplied path/value updates using lodash
+// 4.17.15's _.set (prototype-pollution family CVEs).
 router.post('/settings/merge', authenticate, (req, res) => {
   const settings: Record<string, unknown> = { theme: 'dark', notifications: true };
-  lodashMerge(settings, req.body || {});
-  // Observable probe: prototype pollution makes this true for a fresh {} too.
+  const updates = Array.isArray((req.body || {}).updates) ? (req.body as { updates: unknown[] }).updates : [];
+  for (const raw of updates) {
+    const u = raw as { path?: string; value?: unknown };
+    if (typeof u.path === 'string') lodashSet(settings, u.path, u.value);
+  }
+  // Observable probe: a __proto__ path pollutes Object.prototype in-process.
   const polluted = ({} as Record<string, unknown>).isAdmin === true;
   res.json({ settings, prototype_polluted: polluted });
 });
