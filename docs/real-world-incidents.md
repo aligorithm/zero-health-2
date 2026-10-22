@@ -48,6 +48,19 @@ Statistics current as of October 2026 reporting.
   in the instruction channel becomes a governance problem, not just a chat
   curiosity.
 
+## Incidents that inspired flaws in this lab
+
+- **Kaiser (2024) and Cerebral (2023)**: tracking technologies on patient
+  surfaces transmitting identity-linked usage to advertisers. Inspired
+  lesson P1, the portal analytics beacon.
+- **Welltok (2023)**: breach through a vulnerable third-party component.
+  Inspired lesson O06, the pinned vulnerable lodash dependency.
+- **Change Healthcare (2024) / Anthem (2015)**: attacker reconnaissance
+  against a misconfigured, unmonitored estate. Inspired lesson O05 (debug
+  disclosure) and the audit-logging gaps.
+- **General health SaaS bug-bounty findings**: webhook and callback SSRF.
+  Inspired lesson O10.
+
 ## Sources
 
 - HIPAA Journal, Healthcare Data Breach Statistics (updated Oct 15, 2026):

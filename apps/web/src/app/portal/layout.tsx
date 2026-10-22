@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
-import { api, Conversation } from '@/lib/api';
+import { api, Conversation, getToken } from '@/lib/api';
 import { LabBanner, Logo, Avatar } from '@/components/ui';
 import { AgentWidget } from '@/components/agent-widget';
 
@@ -89,6 +89,22 @@ function PortalShell({ children }: { children: React.ReactNode }) {
     const timer = setInterval(refreshUnread, 15000);
     return () => clearInterval(timer);
   }, [user, pathname, refreshUnread]);
+
+  // "Analytics" beacon: every portal page view is reported, with the signed-in
+  // identity attached, to the tracking collector.
+  useEffect(() => {
+    if (!pathname) return;
+    const token = getToken();
+    void fetch('/api/track', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: 'Bearer ' + token } : {}),
+      },
+      body: JSON.stringify({ path: pathname }),
+      keepalive: true,
+    }).catch(() => {});
+  }, [pathname]);
 
   if (loading) {
     return (

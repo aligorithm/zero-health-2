@@ -4,7 +4,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
-import { db } from './db';
+import { db, DB_PATH } from './db';
 import type {
   UserRow,
   PrescriptionRow,
@@ -22,11 +22,15 @@ import type {
   ConversationRow,
   AdminStatsRow,
   PasswordResetTokenRow,
+  WebhookRow,
 } from './db';
 import { runAgent, llmConfigured } from './agent';
-import { sendMail, WEB_BASE_URL } from './mailer';
+import lodashMerge from 'lodash/merge';
+import { sendMail, mailerConfigured, WEB_BASE_URL } from './mailer';
 
 const router = Router();
+
+const PORT = Number(process.env.PORT || 4000);
 
 const JWT_SECRET = process.env.JWT_SECRET || 'zero-health-lab-secret';
 
@@ -78,9 +82,8 @@ function hashPassword(pw: string): string {
 
 function generateCollectionCode(): string {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const bytes = crypto.randomBytes(6);
   let code = '';
-  for (let i = 0; i < 6; i++) code += alphabet[bytes[i] % alphabet.length];
+  for (let i = 0; i < 6; i++) code += alphabet[Math.floor(Math.random() * alphabet.length)];
   return code;
 }
 
@@ -959,6 +962,11 @@ router.post('/messages', authenticate, upload.single('attachment'), (req, res) =
         WHERE m.id = ?`
     )
     .get(Number(info.lastInsertRowid));
+  fireWebhook(recipientId, {
+    type: 'message',
+    from: created?.from_name,
+    preview: body.slice(0, 80),
+  });
   res.json(created);
 });
 
@@ -1022,6 +1030,32 @@ router.get('/messages/with/:userId', authenticate, (req, res) => {
   res.json({ counterpart, messages: rows });
 });
 
+// --- Debug ------------------------------------------------------------------
+
+router.get('/debug', (_req, res) => {
+  const uploads = fs.existsSync(UPLOADS_DIR)
+    ? fs.readdirSync(UPLOADS_DIR).slice(0, 50)
+    : [];
+  res.json({
+    node: process.version,
+    platform: process.platform,
+    uptime_seconds: Math.round(process.uptime()),
+    env: {
+      port: PORT,
+      db_path: DB_PATH,
+      jwt_secret_is_default: !process.env.JWT_SECRET,
+      llm_configured: llmConfigured(),
+      smtp_configured: mailerConfigured(),
+    },
+    database: {
+      users: db.prepare<[], { n: number }>('SELECT COUNT(*) AS n FROM users').get()?.n,
+      prescriptions: db.prepare<[], { n: number }>('SELECT COUNT(*) AS n FROM prescriptions').get()?.n,
+      lab_results: db.prepare<[], { n: number }>('SELECT COUNT(*) AS n FROM lab_results').get()?.n,
+    },
+    uploads,
+  });
+});
+
 // --- Search ----------------------------------------------------------------
 
 router.get('/search', authenticate, (req, res) => {
@@ -1061,14 +1095,12 @@ router.get('/search', authenticate, (req, res) => {
       res.status(403).json({ error: 'not allowed to search prescriptions' });
       return;
     }
-    const rows = db
-      .prepare<[string, string], PrescriptionWithNamesRow>(
-        `SELECT p.*, pt.full_name AS patient_name
-           FROM prescriptions p LEFT JOIN users pt ON pt.id = p.patient_id
-          WHERE p.medication LIKE ? OR pt.full_name LIKE ?
-          ORDER BY p.id`
-      )
-      .all(like, like);
+    // Interpolated query: user input is concatenated straight into the SQL.
+    const sql = `SELECT p.*, pt.full_name AS patient_name
+                   FROM prescriptions p LEFT JOIN users pt ON pt.id = p.patient_id
+                  WHERE p.medication LIKE '%${q}%' OR pt.full_name LIKE '%${q}%'
+                  ORDER BY p.id`;
+    const rows = db.prepare<[], PrescriptionWithNamesRow>(sql).all();
     res.json({ query: q, type, results: rows });
     return;
   }
@@ -1398,6 +1430,75 @@ router.post('/auth/reset-password', (req, res) => {
   );
   db.prepare<[number]>('DELETE FROM password_reset_tokens WHERE user_id = ?').run(row.user_id);
   res.json({ message: 'Password updated. You can sign in with your new password.' });
+});
+
+// --- Settings ----------------------------------------------------------------
+
+// Notification webhooks. Any authenticated user can point theirs at any URL,
+// and the server will POST event data to it when messages arrive.
+router.post('/settings/webhook', authenticate, (req, res) => {
+  const { url } = (req.body || {}) as { url?: string };
+  if (!url || !/^https?:\/\//i.test(url)) {
+    res.status(400).json({ error: 'url required' });
+    return;
+  }
+  db.prepare('DELETE FROM webhooks WHERE user_id = ?').run(req.user!.id);
+  const info = db
+    .prepare<[number, string]>('INSERT INTO webhooks (user_id, url) VALUES (?, ?)')
+    .run(req.user!.id, url);
+  const webhook = db.prepare<[number], WebhookRow>('SELECT * FROM webhooks WHERE user_id = ?').get(req.user!.id);
+  res.json({ id: Number(info.lastInsertRowid), webhook });
+});
+
+router.delete('/settings/webhook', authenticate, (req, res) => {
+  db.prepare('DELETE FROM webhooks WHERE user_id = ?').run(req.user!.id);
+  res.json({ removed: true });
+});
+
+function fireWebhook(userId: number, payload: Record<string, unknown>): void {
+  const webhook = db.prepare<[number], WebhookRow>('SELECT * FROM webhooks WHERE user_id = ?').get(userId);
+  if (!webhook) return;
+  void fetch(webhook.url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(3000),
+  }).catch(() => {});
+}
+
+// Settings merge: merges a client-supplied JSON blob into the settings object
+// using lodash 4.17.15 (known prototype-pollution CVEs).
+router.post('/settings/merge', authenticate, (req, res) => {
+  const settings: Record<string, unknown> = { theme: 'dark', notifications: true };
+  lodashMerge(settings, req.body || {});
+  // Observable probe: prototype pollution makes this true for a fresh {} too.
+  const polluted = ({} as Record<string, unknown>).isAdmin === true;
+  res.json({ settings, prototype_polluted: polluted });
+});
+
+// --- Analytics beacon --------------------------------------------------------
+
+// Portal "analytics": page views with the signed-in identity attached.
+router.post('/track', (req, res) => {
+  const path = String((req.body || {}).path || '').slice(0, 200);
+  const header = req.headers.authorization || '';
+  const token = header.replace(/^Bearer\s+/i, '');
+  let userId: number | null = null;
+  if (token) {
+    try {
+      const claims = jwt.verify(token, JWT_SECRET) as AuthUser;
+      userId = claims.id;
+    } catch {
+      userId = null;
+    }
+  }
+  if (path) {
+    db.prepare<[number | null, string]>('INSERT INTO analytics_events (user_id, path) VALUES (?, ?)').run(
+      userId,
+      path
+    );
+  }
+  res.status(204).end();
 });
 
 // --- Job applications ------------------------------------------------------

@@ -100,6 +100,20 @@ export interface PatientPanelRow {
   active_rx: number;
 }
 
+export interface WebhookRow {
+  id: number;
+  user_id: number;
+  url: string;
+  created_at: string;
+}
+
+export interface AnalyticsEventRow {
+  id: number;
+  user_id: number | null;
+  path: string;
+  created_at: string;
+}
+
 export interface PasswordResetTokenRow {
   id: number;
   user_id: number;
@@ -244,6 +258,20 @@ export function init(): void {
       user_id INTEGER NOT NULL,
       message TEXT NOT NULL,
       response TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS webhooks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      url TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS analytics_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      path TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 

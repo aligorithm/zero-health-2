@@ -39,6 +39,13 @@ Authorization is meant to happen in two layers:
 | A2 | `GET /admin/users` | never returns secrets; strong hashing | leaks unsalted SHA-256 hashes |
 | L1 | `POST /agent/chat` | user input can't override policy | user input shares instruction channel |
 | L2 | `GET /agent/summarize/:id` | record text is untrusted data | record text steers the agent |
+| O03 | `GET /search?type=prescriptions` | parameterized queries everywhere | one branch interpolates the query |
+| O04 | `POST /prescriptions` | codes from a CSPRNG | Math.random() codes |
+| O05 | `GET /debug` | no debug surface in production | unauthenticated config disclosure |
+| O06 | `POST /settings/merge` | patched dependencies | lodash 4.17.15 prototype pollution |
+| O08 | `POST /lab-results`, `POST /messages` | uploads content-verified | extension-only trust |
+| O10 | `POST /settings/webhook` | egress allowlist | server fetches any user URL |
+| P1 | portal beacon | no trackers on health surfaces | page views + identity logged |
 
 The point of the table is that **every** gap is a divergence between this
 documented policy and the implementation — which is exactly the artifact a

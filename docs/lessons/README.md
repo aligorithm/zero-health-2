@@ -20,6 +20,13 @@ All data is synthetic. The app binds to localhost and refuses public exposure
 | [A5](A5-prescription-integrity.md) | Broken function-level authz → prescription integrity | API5 / A01 | alter a medication order |
 | [A6](A6-broken-admin-authorization.md) | Broken admin-level authorization | API5 / A01 | reach admin surface |
 | [L1/L2](L1-L2-prompt-injection.md) | Direct & indirect prompt injection | LLM01 | agent wired to records |
+| [O03](O03-sql-injection-search.md) | SQL injection in prescription search | A03 | one search branch concatenates input |
+| [O04](O04-predictable-collection-codes.md) | Predictable collection codes | A04 | Math.random() for a bearer token |
+| [O05](O05-debug-endpoint.md) | Exposed debug endpoint | A05 | unauthenticated config disclosure |
+| [O06](O06-vulnerable-dependency.md) | Vulnerable lodash dependency | A06 | prototype pollution (CVE-2020-8203) |
+| [O08](O08-unverified-uploads.md) | Uploads never content-verified | A08 | extension-only trust on clinical files |
+| [O10](O10-webhook-ssrf.md) | Webhook SSRF | A10 | server POSTs to any user-chosen URL |
+| [P1](P1-tracking-pixel.md) | Tracking pixel on the portal | Privacy (HIPAA) | Kaiser / Cerebral incident class |
 | [C1](C1-bulk-access-and-exfiltration-class.md) | Bulk access / exfiltration (defensive) | A01 / API4 | mass record disclosure |
 | [C2](C2-rce-class-defensive.md) | Server-takeover class (defensive) | A03 / A08 | full-system compromise |
 
