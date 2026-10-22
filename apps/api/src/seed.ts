@@ -8,9 +8,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
-import { db, init } from './db';
-
-const UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads');
+import { db, init, UPLOADS_DIR } from './db';
 
 // Minimal deterministic PNG writer, so the seeded lab result ships with a
 // synthetic "chart" image without any image libraries.

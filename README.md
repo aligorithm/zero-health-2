@@ -157,6 +157,13 @@ rest, valid 15 minutes). The forgot-password endpoint returns the same
 response whether or not the account exists, so it cannot be used to enumerate
 users.
 
+## Deploying
+
+See [`DEPLOYMENT.md`](DEPLOYMENT.md): two free (F1) Azure App Service apps,
+auto-deployed by GitHub Actions on every push to `main`, at $0/month with no
+feature loss. Read the security section there before exposing the URL —
+this is a deliberately vulnerable application.
+
 ## Finding the flaws
 
 The application carries **no labels, hints, or warning callouts** on its pages

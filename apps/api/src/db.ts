@@ -182,6 +182,11 @@ export interface AdminStatsRow {
 export const DB_PATH =
   process.env.DB_PATH || path.join(__dirname, '..', '..', '..', 'data', 'zero-health.sqlite');
 
+// Uploads live next to the app by default; point UPLOADS_DIR at a persistent
+// location on hosts where the app root is replaced on every deploy.
+export const UPLOADS_DIR =
+  process.env.UPLOADS_DIR || path.join(__dirname, '..', '..', 'uploads');
+
 export const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 

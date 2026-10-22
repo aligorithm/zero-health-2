@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import os from 'node:os';
 import { exec } from 'node:child_process';
-import { db, DB_PATH } from './db';
+import { db, DB_PATH, UPLOADS_DIR } from './db';
 import type {
   UserRow,
   PrescriptionRow,
@@ -38,7 +38,6 @@ const JWT_SECRET = process.env.JWT_SECRET || 'zero-health-lab-secret';
 
 const ROLES = ['patient', 'doctor', 'pharmacist', 'labtech', 'admin'];
 
-const UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads');
 const IMAGE_TYPES: Record<string, string> = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
@@ -49,7 +48,10 @@ const IMAGE_TYPES: Record<string, string> = {
 
 const upload = multer({
   storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
+    destination: (_req, _file, cb) => {
+      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+      cb(null, UPLOADS_DIR);
+    },
     filename: (_req, file, cb) => {
       const ext = path.extname(file.originalname || '').toLowerCase();
       cb(null, crypto.randomBytes(16).toString('hex') + (IMAGE_TYPES[ext] ? ext : '.png'));
