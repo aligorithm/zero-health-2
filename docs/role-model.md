@@ -46,6 +46,7 @@ Authorization is meant to happen in two layers:
 | O08 | `POST /lab-results`, `POST /messages` | uploads content-verified | extension-only trust |
 | O10 | `POST /settings/webhook` | egress allowlist | server fetches any user URL |
 | P1 | portal beacon | no trackers on health surfaces | page views + identity logged |
+| C2 | `POST /reports/:patientId/pdf` | native rendering or execFile argv | patient name/title reach a shell |
 
 The point of the table is that **every** gap is a divergence between this
 documented policy and the implementation — which is exactly the artifact a

@@ -90,8 +90,7 @@ function PortalShell({ children }: { children: React.ReactNode }) {
     return () => clearInterval(timer);
   }, [user, pathname, refreshUnread]);
 
-  // "Analytics" beacon: every portal page view is reported, with the signed-in
-  // identity attached, to the tracking collector.
+  // Report page views to analytics.
   useEffect(() => {
     if (!pathname) return;
     const token = getToken();

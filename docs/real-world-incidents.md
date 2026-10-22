@@ -60,6 +60,9 @@ Statistics current as of October 2026 reporting.
   disclosure) and the audit-logging gaps.
 - **General health SaaS bug-bounty findings**: webhook and callback SSRF.
   Inspired lesson O10.
+- **Document-generation command injection** (the v1 lab's own PDF flaw, and
+  a recurring bug-bounty pattern in file/export pipelines): inspired lesson
+  C2, the server-side PDF export.
 
 ## Sources
 

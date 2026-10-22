@@ -4,6 +4,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
+import os from 'node:os';
+import { exec } from 'node:child_process';
 import { db, DB_PATH } from './db';
 import type {
   UserRow,
@@ -1095,7 +1097,6 @@ router.get('/search', authenticate, (req, res) => {
       res.status(403).json({ error: 'not allowed to search prescriptions' });
       return;
     }
-    // Interpolated query: user input is concatenated straight into the SQL.
     const sql = `SELECT p.*, pt.full_name AS patient_name
                    FROM prescriptions p LEFT JOIN users pt ON pt.id = p.patient_id
                   WHERE p.medication LIKE '%${q}%' OR pt.full_name LIKE '%${q}%'
@@ -1304,6 +1305,45 @@ router.get('/reports/:patientId', authenticate, (req, res) => {
   res.json({ patient, prescriptions, lab_results: labResults, appointments });
 });
 
+// Server-side PDF export: renders the patient report to a hard copy through
+// the system converter (htmldoc) and returns the converter log.
+router.post('/reports/:patientId/pdf', authenticate, (req, res) => {
+  if (!['doctor', 'admin'].includes(req.user!.role)) {
+    res.status(403).json({ error: 'doctor or admin access required' });
+    return;
+  }
+  const patient = db
+    .prepare<[string], Omit<UserRow, 'password_hash'>>(
+      'SELECT id, email, full_name, role, created_at FROM users WHERE id = ?'
+    )
+    .get(req.params.patientId);
+  if (!patient) {
+    res.status(404).json({ error: 'patient not found' });
+    return;
+  }
+  const body = (req.body || {}) as { title?: string };
+  const title = String(body.title || `${patient.full_name} medical report`).slice(0, 200);
+  const htmlPath = path.join(os.tmpdir(), `zh-report-${patient.id}.html`);
+  const outPath = path.join(os.tmpdir(), `zh-report-${patient.id}.pdf`);
+  fs.writeFileSync(
+    htmlPath,
+    `<html><head><title>${title}</title></head><body><h1>${patient.full_name}</h1><p>Zero Health medical report</p></body></html>`
+  );
+  exec(
+    `htmldoc --format pdf --title "${title}" --out ${outPath} ${htmlPath}`,
+    { timeout: 8000 },
+    (err, stdout, stderr) => {
+      res.json({
+        patient: patient.full_name,
+        title,
+        pdf: fs.existsSync(outPath) ? outPath : null,
+        exit_code: err ? (err.code ?? 1) : 0,
+        log: `${stdout}\n${stderr}`.trim() || 'converter produced no output',
+      });
+    }
+  );
+});
+
 // --- Zero Agent ------------------------------------------------------------
 
 router.post('/agent/chat', authenticate, async (req, res) => {
@@ -1434,8 +1474,8 @@ router.post('/auth/reset-password', (req, res) => {
 
 // --- Settings ----------------------------------------------------------------
 
-// Notification webhooks. Any authenticated user can point theirs at any URL,
-// and the server will POST event data to it when messages arrive.
+// Notification webhooks: when a user with a registered webhook receives a
+// message, the server POSTs event data to their URL.
 router.post('/settings/webhook', authenticate, (req, res) => {
   const { url } = (req.body || {}) as { url?: string };
   if (!url || !/^https?:\/\//i.test(url)) {
@@ -1466,8 +1506,7 @@ function fireWebhook(userId: number, payload: Record<string, unknown>): void {
   }).catch(() => {});
 }
 
-// Settings updates: applies client-supplied path/value updates using lodash
-// 4.17.15's _.set (prototype-pollution family CVEs).
+// Settings updates: apply client-supplied path/value updates.
 router.post('/settings/merge', authenticate, (req, res) => {
   const settings: Record<string, unknown> = { theme: 'dark', notifications: true };
   const updates = Array.isArray((req.body || {}).updates) ? (req.body as { updates: unknown[] }).updates : [];
@@ -1475,7 +1514,6 @@ router.post('/settings/merge', authenticate, (req, res) => {
     const u = raw as { path?: string; value?: unknown };
     if (typeof u.path === 'string') lodashSet(settings, u.path, u.value);
   }
-  // Observable probe: a __proto__ path pollutes Object.prototype in-process.
   const polluted = ({} as Record<string, unknown>).isAdmin === true;
   res.json({ settings, prototype_polluted: polluted });
 });

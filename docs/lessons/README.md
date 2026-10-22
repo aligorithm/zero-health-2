@@ -28,27 +28,26 @@ All data is synthetic. The app binds to localhost and refuses public exposure
 | [O10](O10-webhook-ssrf.md) | Webhook SSRF | A10 | server POSTs to any user-chosen URL |
 | [P1](P1-tracking-pixel.md) | Tracking pixel on the portal | Privacy (HIPAA) | Kaiser / Cerebral incident class |
 | [C1](C1-bulk-access-and-exfiltration-class.md) | Bulk access / exfiltration (defensive) | A01 / API4 | mass record disclosure |
-| [C2](C2-rce-class-defensive.md) | Server-takeover class (defensive) | A03 / A08 | full-system compromise |
+| [C2](C2-command-injection-report-export.md) | Command injection in report export (server takeover) | A03 | stored + direct command execution |
 
 ## A note on the two highest-impact classes (C1, C2)
 
 The original design brief asked for "mass data exfiltration" and "server
-takeover." This lab handles those two deliberately differently from the rest:
+takeover." Both classes are now present as live, findable flaws:
 
-- It **demonstrates the primitives** that lead to bulk disclosure (the IDOR and
-  broken-authz lessons let you read records you shouldn't), because seeing that
-  is the teaching point.
-- It **does not ship** a packaged, optimized exfiltration tool or a live
-  remote-code-execution-to-shell chain. Those add nothing pedagogically that the
-  detection-and-fix treatment doesn't, while being the parts most reusable
-  outside a lab.
+- **C1** ships the primitives: the SQL injection in prescription search (O03)
+  supports UNION payloads that pull whole tables (including every account
+  and password hash), the IDOR lessons let you walk other patients' records,
+  and the unguarded admin list dumps every account in one request. The lesson
+  covers how these escalate to bulk exfiltration and what that looks like in
+  traffic.
+- **C2** ships a working command-injection chain in the server-side PDF
+  export: stored via patient profile names, or direct via the report title.
+  Arbitrary commands run as the service account.
 
-So C1 and C2 are taught as **classes**: how the weakness arises, how to detect
-it in code and traffic, and how to remediate it. This keeps the lab firmly a
-*find-it-and-fix-it* environment. If you are teaching an advanced course and
-want live exploit targets for these two classes specifically, the established,
-governed labs (OWASP Juice Shop's harder challenges, dedicated RCE sandboxes)
-are the right venue, run in isolation.
+The lab runs on localhost with fabricated data, so the impact of practicing
+here is zero. The learning objective remains *find it and fix it*: escalate
+from a single record to the class impact, then remove the capability.
 
 ## How to run a session
 

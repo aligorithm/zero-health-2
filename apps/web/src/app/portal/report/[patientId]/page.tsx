@@ -12,6 +12,8 @@ export default function ReportPage() {
   const router = useRouter();
   const [report, setReport] = useState<ReportData | null>(null);
   const [error, setError] = useState('');
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfLog, setPdfLog] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -49,7 +51,29 @@ export default function ReportPage() {
         <button className="btn btn-primary btn-sm" onClick={() => window.print()}>
           Print / save as PDF
         </button>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={async () => {
+            setPdfBusy(true);
+            setPdfLog('');
+            const { ok, data } = await api<{ log?: string; pdf?: string | null; title?: string }>(
+              `/reports/${params.patientId}/pdf`,
+              { method: 'POST', body: {} }
+            );
+            setPdfBusy(false);
+            setPdfLog(ok ? data.log || 'converter produced no output' : data.error || 'Export failed.');
+          }}
+          disabled={pdfBusy}
+        >
+          {pdfBusy ? 'Generating…' : 'Generate PDF (server)'}
+        </button>
       </div>
+      {pdfLog && (
+        <div className="out no-print" aria-live="polite">
+          Converter log:
+          {pdfLog}
+        </div>
+      )}
 
       <div className="report-doc">
         <header className="report-head">

