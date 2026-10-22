@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 import { api, Conversation, getToken } from '@/lib/api';
-import { LabBanner, Logo, Avatar } from '@/components/ui';
+import { Logo, Avatar } from '@/components/ui';
+import { LabBanner } from '@/components/lab-banner';
 import { AgentWidget } from '@/components/agent-widget';
 
 interface NavItem {
@@ -71,6 +72,11 @@ function PortalShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [unread, setUnread] = useState<number | null>(null);
+  const [navOpen, setNavOpen] = useState(false);
+
+  useEffect(() => {
+    setNavOpen(false);
+  }, [pathname]);
 
   const refreshUnread = useCallback(async (): Promise<void> => {
     const { ok, data } = await api<Conversation[]>('/conversations');
@@ -128,8 +134,24 @@ function PortalShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <LabBanner />
-      <div className="shell">
-        <aside className="side">
+      <header className="mobile-bar">
+        <button
+          className="nav-burger"
+          aria-label={navOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={navOpen}
+          aria-controls="portal-nav"
+          onClick={() => setNavOpen(!navOpen)}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+        <Logo />
+        <span className="brand">Zero Health</span>
+      </header>
+      {navOpen && <div className="nav-backdrop" aria-hidden="true" onClick={() => setNavOpen(false)} />}
+      <div className={`shell ${navOpen ? 'nav-open' : ''}`}>
+        <aside className="side" id="portal-nav">
           <div className="logo">
             <Logo />
             <span className="brand">Zero Health</span>
@@ -139,7 +161,10 @@ function PortalShell({ children }: { children: React.ReactNode }) {
             <button
               key={item.href}
               className={`nav-item ${pathname === item.href ? 'active' : ''}`}
-              onClick={() => router.push(item.href)}
+              onClick={() => {
+                router.push(item.href);
+                setNavOpen(false);
+              }}
             >
               <span style={{ flex: 1 }}>{item.label}</span>
               {item.badge === 'messages' && unread !== null && unread > 0 && (

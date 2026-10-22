@@ -4,7 +4,8 @@ import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/api';
-import { LabBanner, Logo } from '@/components/ui';
+import { Logo } from '@/components/ui';
+import { LabBanner } from '@/components/lab-banner';
 
 export default function ResetPasswordPage() {
   return (

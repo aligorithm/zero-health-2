@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { LabBanner, Logo, MeshBackground } from '@/components/ui';
+import { Logo, MeshBackground } from '@/components/ui';
+import { LabBanner } from '@/components/lab-banner';
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (

@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { LabBanner, Logo } from '@/components/ui';
+import { Logo } from '@/components/ui';
+import { LabBanner } from '@/components/lab-banner';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');

@@ -13,14 +13,6 @@ export function Logo({ size = 26 }: { size?: number }) {
   );
 }
 
-export function LabBanner() {
-  return (
-    <div className="lab-banner" role="region" aria-label="Lab notice">
-      ⚠ <b>Zero Health Lab</b> · intentionally vulnerable · do not deploy publicly
-    </div>
-  );
-}
-
 export function MeshBackground() {
   return (
     <div className="mesh-bg" aria-hidden="true">

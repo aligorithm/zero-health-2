@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, LoginResponse, setToken } from '@/lib/api';
-import { LabBanner, Logo } from '@/components/ui';
+import { Logo } from '@/components/ui';
+import { LabBanner } from '@/components/lab-banner';
 
 type Mode = 'login' | 'register';
 
