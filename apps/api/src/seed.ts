@@ -119,12 +119,17 @@ function seed(): void {
   }
 
   const users: SeedUser[] = [
-    { email: 'patient.alpha@example.test', name: 'Amelia Hart', role: 'patient', phone: '+1-555-0142', dob: '1988-04-12', gender: 'female', address: '14 Meadow Lane, Springford' },
-    { email: 'patient.beta@example.test', name: 'Ben Carter', role: 'patient', phone: '+1-555-0177', dob: '1979-11-03', gender: 'male', address: '82 Harbor Street, Eastvale' },
-    { email: 'patient.gamma@example.test', name: 'Grace Liu', role: 'patient', phone: '+1-555-0126', dob: '1994-06-25', gender: 'female', address: '7 Willow Court, Northgate' },
+    { email: 'patient.alpha@example.test', name: 'Patience Jo Nathan', role: 'patient', phone: '+1-555-0142', dob: '1988-04-12', gender: 'female', address: '14 Meadow Lane, Springford' },
+    { email: 'patient.beta@example.test', name: 'Tinu Buhari', role: 'patient', phone: '+1-555-0177', dob: '1979-11-03', gender: 'male', address: '82 Harbor Street, Eastvale' },
+    { email: 'patient.gamma@example.test', name: 'Saul Goodman', role: 'patient', phone: '+1-555-0126', dob: '1994-06-25', gender: 'male', address: '7 Willow Court, Northgate' },
     { email: 'patient.delta@example.test', name: 'David Okafor', role: 'patient', phone: '+1-555-0198', dob: '1965-02-18', gender: 'male', address: '230 Ridgeway Avenue, Westbrook' },
-    { email: 'dr.one@example.test', name: 'Dr. Sarah Chen', role: 'doctor', phone: '+1-555-0101', dob: '1981-09-30', gender: 'female', specialization: 'Family Medicine', license: 'MD-114-8230' },
-    { email: 'pharma.one@example.test', name: 'Priya Nair', role: 'pharmacist', phone: '+1-555-0110', license: 'RPh-207-4416' },
+    { email: 'dr.one@example.test', name: 'Dr. Strange', role: 'doctor', phone: '+1-555-0101', dob: '1981-09-30', gender: 'male', specialization: 'Neurosurgery', license: 'MD-114-8230' },
+    { email: 'dr.dre@example.test', name: 'Dr. Dre', role: 'doctor', phone: '+1-555-0102', specialization: 'Emergency Medicine', license: 'MD-207-1355' },
+    { email: 'dr.doom@example.test', name: 'Dr. Doom', role: 'doctor', phone: '+1-555-0103', specialization: 'Oncology', license: 'MD-666-0006' },
+    { email: 'dr.mihawk@example.test', name: 'Dr. Acule Mihawk', role: 'doctor', phone: '+1-555-0104', specialization: 'Ophthalmology', license: 'MD-043-1990' },
+    { email: 'pharma.one@example.test', name: 'Walter White', role: 'pharmacist', phone: '+1-555-0110', license: 'RPh-207-4416' },
+    { email: 'pharma.two@example.test', name: 'Kyle O. Ren', role: 'pharmacist', phone: '+1-555-0111', license: 'RPh-066-3270' },
+    { email: 'pharma.three@example.test', name: 'Ugo C. Shege', role: 'pharmacist', phone: '+1-555-0112', license: 'RPh-001-9985' },
     { email: 'lab.one@example.test', name: 'Marcus Webb', role: 'labtech', phone: '+1-555-0133', license: 'MLT-512-0987' },
     { email: 'admin@example.test', name: 'Alexis Rhodes', role: 'admin', phone: '+1-555-0100' },
   ];
@@ -288,7 +293,7 @@ function seed(): void {
 
   console.log('Seeded the lab database: %d users, plus appointments and messages.', users.length);
   console.log('All accounts use password: Password1!  (lab only)');
-  console.log('Prescription collection codes: rx 1 = ZH4A2K (Amelia Hart), rx 2 = ZH7B9X (Ben Carter)');
+  console.log('Prescription collection codes: rx 1 = ZH4A2K (Patience Jo Nathan), rx 2 = ZH7B9X (Tinu Buhari)');
 }
 
 seed();

@@ -14,7 +14,7 @@ const sampleDate = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10
 const SUGGESTIONS = [
   'What are my prescriptions?',
   'When is my next appointment?',
-  `Book an appointment with Dr. Sarah Chen on ${sampleDate} at 15:00`,
+  `Book an appointment with Dr. Strange on ${sampleDate} at 15:00`,
 ];
 
 export function AgentWidget() {

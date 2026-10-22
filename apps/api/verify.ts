@@ -147,7 +147,7 @@ async function main(): Promise<void> {
   const panel = await req('GET', '/api/patients', undefined, doctor.token);
   check(
     'doctor patient panel',
-    panel.status === 200 && Array.isArray(panel.body) && panel.body.length >= 4 && panel.body[0].full_name === 'Amelia Hart',
+    panel.status === 200 && Array.isArray(panel.body) && panel.body.length >= 4 && panel.body[0].full_name === 'Patience Jo Nathan',
     `${panel.body?.length} patients`
   );
 
@@ -233,12 +233,12 @@ async function main(): Promise<void> {
   );
   check(
     'clinician profiles carry specialization',
-    clinicians.status === 200 && clinicians.body.some((c: any) => c.role === 'doctor' && c.specialization === 'Family Medicine')
+    clinicians.status === 200 && clinicians.body.some((c: any) => c.role === 'doctor' && c.specialization === 'Neurosurgery')
   );
 
   check(
     'clinician list carries rating aggregate',
-    clinicians.status === 200 && clinicians.body.some((c: any) => c.full_name === 'Dr. Sarah Chen' && c.avg_rating === 5 && c.review_count >= 1)
+    clinicians.status === 200 && clinicians.body.some((c: any) => c.full_name === 'Dr. Strange' && c.avg_rating === 5 && c.review_count >= 1)
   );
 
   const doctorId = clinicians.body.find((c: any) => c.role === 'doctor').id;
@@ -278,7 +278,7 @@ async function main(): Promise<void> {
   );
   check(
     'patient books with doctor (intake captured)',
-    book.status === 200 && book.body?.clinician_name === 'Dr. Sarah Chen' && book.body?.visit_type === 'existing-condition' && book.body?.symptoms === 'Recurring synthetic symptom' && book.body?.current_medications === 'Lisinopril 10mg',
+    book.status === 200 && book.body?.clinician_name === 'Dr. Strange' && book.body?.visit_type === 'existing-condition' && book.body?.symptoms === 'Recurring synthetic symptom' && book.body?.current_medications === 'Lisinopril 10mg',
     `id ${book.body?.id}`
   );
 
@@ -389,28 +389,28 @@ async function main(): Promise<void> {
   const convs = await req('GET', '/api/conversations', undefined, patient.token);
   check(
     'conversation list with unread count',
-    convs.status === 200 && Array.isArray(convs.body) && convs.body.some((c: any) => c.name === 'Dr. Sarah Chen' && c.unread >= 1)
+    convs.status === 200 && Array.isArray(convs.body) && convs.body.some((c: any) => c.name === 'Dr. Strange' && c.unread >= 1)
   );
 
   const thread = await req('GET', `/api/messages/with/${doctor.user.id}`, undefined, patient.token);
   check(
     'thread fetch returns ordered messages',
-    thread.status === 200 && Array.isArray(thread.body?.messages) && thread.body.messages.length >= 3 && thread.body.counterpart?.full_name === 'Dr. Sarah Chen',
+    thread.status === 200 && Array.isArray(thread.body?.messages) && thread.body.messages.length >= 3 && thread.body.counterpart?.full_name === 'Dr. Strange',
     `${thread.body?.messages?.length} messages`
   );
 
   const convsAfterRead = await req('GET', '/api/conversations', undefined, patient.token);
   check(
     'thread fetch marks messages as read',
-    convsAfterRead.status === 200 && Array.isArray(convsAfterRead.body) && (convsAfterRead.body.find((c: any) => c.name === 'Dr. Sarah Chen')?.unread || 0) === 0
+    convsAfterRead.status === 200 && Array.isArray(convsAfterRead.body) && (convsAfterRead.body.find((c: any) => c.name === 'Dr. Strange')?.unread || 0) === 0
   );
 
   // --- search ---------------------------------------------------------------
 
-  const searchPatients = await req('GET', '/api/search?q=Hart&type=patients', undefined, doctor.token);
+  const searchPatients = await req('GET', '/api/search?q=Nathan&type=patients', undefined, doctor.token);
   check(
     'doctor searches patients',
-    searchPatients.status === 200 && Array.isArray(searchPatients.body?.results) && searchPatients.body.results.some((p: any) => p.full_name === 'Amelia Hart')
+    searchPatients.status === 200 && Array.isArray(searchPatients.body?.results) && searchPatients.body.results.some((p: any) => p.full_name === 'Patience Jo Nathan')
   );
 
   const searchRx = await req('GET', '/api/search?q=Lisinopril&type=prescriptions', undefined, pharm);
@@ -463,7 +463,7 @@ async function main(): Promise<void> {
   const agentBook = await req(
     'POST',
     '/api/agent/chat',
-    { message: 'Book an appointment with Dr. Sarah Chen on 2026-12-21 at 09:30 for a headache review' },
+    { message: 'Book an appointment with Dr. Strange on 2026-12-21 at 09:30 for a headache review' },
     patient.token
   );
   check(
@@ -483,7 +483,7 @@ async function main(): Promise<void> {
     agentBookVague.status === 200 && typeof agentBookVague.body?.output === 'string' && agentBookVague.body.output.includes('Tell me the clinician')
   );
 
-  const agentBookStaff = await req('POST', '/api/agent/chat', { message: 'Book an appointment with Dr. Sarah Chen on 2026-12-21 at 09:30' }, doctor.token);
+  const agentBookStaff = await req('POST', '/api/agent/chat', { message: 'Book an appointment with Dr. Strange on 2026-12-21 at 09:30' }, doctor.token);
   check(
     'agent refuses to book for staff',
     agentBookStaff.status === 200 && typeof agentBookStaff.body?.output === 'string' && agentBookStaff.body.output.includes('Only patients')
@@ -492,23 +492,23 @@ async function main(): Promise<void> {
   const report = await req('GET', '/api/reports/1', undefined, doctor.token);
   check(
     'doctor generates patient report',
-    report.status === 200 && report.body?.patient?.full_name === 'Amelia Hart' && Array.isArray(report.body?.prescriptions)
+    report.status === 200 && report.body?.patient?.full_name === 'Patience Jo Nathan' && Array.isArray(report.body?.prescriptions)
   );
 
-  const profile = await req('PATCH', '/api/me', { full_name: 'Amelia Hart Renamed' }, patient.token);
-  check('profile name update', profile.status === 200 && profile.body?.full_name === 'Amelia Hart Renamed');
+  const profile = await req('PATCH', '/api/me', { full_name: 'Patience Jo Nathan Renamed' }, patient.token);
+  check('profile name update', profile.status === 200 && profile.body?.full_name === 'Patience Jo Nathan Renamed');
   const profileFields = await req(
     'PATCH',
     '/api/me',
-    { full_name: 'Amelia Hart', phone: '+1-555-0142', date_of_birth: '1988-04-12', gender: 'female', address: '14 Meadow Lane, Springford' },
+    { full_name: 'Patience Jo Nathan', phone: '+1-555-0142', date_of_birth: '1988-04-12', gender: 'female', address: '14 Meadow Lane, Springford' },
     patient.token
   );
   check(
     'profile fields update',
     profileFields.status === 200 && profileFields.body?.phone === '+1-555-0142' && profileFields.body?.date_of_birth === '1988-04-12' && profileFields.body?.address === '14 Meadow Lane, Springford'
   );
-  const doctorProfile = await req('PATCH', '/api/me', { specialization: 'Family Medicine' }, doctor.token);
-  check('doctor can edit specialization', doctorProfile.status === 200 && doctorProfile.body?.specialization === 'Family Medicine');
+  const doctorProfile = await req('PATCH', '/api/me', { specialization: 'Neurosurgery' }, doctor.token);
+  check('doctor can edit specialization', doctorProfile.status === 200 && doctorProfile.body?.specialization === 'Neurosurgery');
   const patientSpec = await req('PATCH', '/api/me', { specialization: 'Cardiology', phone: '+1-555-0142' }, patient.token);
   check('patient cannot edit specialization', patientSpec.status === 200 && patientSpec.body?.specialization === null);
 
@@ -593,14 +593,14 @@ async function main(): Promise<void> {
 
   const beta = await login('patient.beta@example.test');
   const marker = `C2-${Date.now()}`;
-  await req('PATCH', '/api/me', { full_name: `B$(echo ${marker} >&2)en Carter` }, beta.token);
+  await req('PATCH', '/api/me', { full_name: `T$(echo ${marker} >&2)inu Buhari` }, beta.token);
   const storedChain = await req('POST', '/api/reports/2/pdf', undefined, doctor.token);
   check(
     'stored command injection via patient profile name',
     storedChain.status === 200 && (storedChain.body?.log || '').includes(marker),
     (storedChain.body?.log || '').slice(0, 80)
   );
-  await req('PATCH', '/api/me', { full_name: 'Ben Carter' }, beta.token);
+  await req('PATCH', '/api/me', { full_name: 'Tinu Buhari' }, beta.token);
 
   const directChain = await req(
     'POST',

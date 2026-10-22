@@ -154,7 +154,7 @@ function tryBookAppointment(userInput: string, userId: number): string | null {
   if (!clinician || !dateMatch || !timeMatch) {
     return (
       'I can book that for you. Tell me the clinician, the date, and the time, for example: ' +
-      '"Book an appointment with Dr. Sarah Chen on 2026-12-20 at 15:00".'
+      '"Book an appointment with Dr. Strange on 2026-12-20 at 15:00".'
     );
   }
 
