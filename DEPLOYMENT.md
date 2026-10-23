@@ -98,3 +98,5 @@ Without these, the agent chat answers 503 and email is printed to the log
 | App restarts in a loop, health never green | Check logs with `az webapp log tail`; most commonly a wrong startup file (`bash start-api.sh` / `bash start-azure.sh`). |
 | Agent chat returns 503 | `AGENT_LLM_*` app settings not set (expected until you configure a model). |
 | Reset link never arrives | SMTP not configured — the email is in the API log instead (by design). |
+| `RequestDisallowedByAzure` at plan creation | The region is throttling new subscriptions. Delete the leftover group (`az group delete -n zh-lab-rg --yes --no-wait`) and rerun with another region (northeurope, swedencentral, uksouth, eastus, ...). |
+| "Publish profile is invalid for app-name and slot-name" | The profile in the secret doesn't match the app name in the variable: either the API/web secrets are swapped, or the variable names differ from the real app names (`az webapp list`). Re-export both profiles, re-set both secrets with `< file` redirects, and confirm `gh variable list` matches `az webapp list`. |
