@@ -28,7 +28,24 @@ echo "==> Creating resource group $RG in $LOCATION"
 az group create --name "$RG" --location "$LOCATION" -o none
 
 echo "==> Creating App Service plan (${SKU}, Linux)"
-az appservice plan create --name "${PREFIX}-plan" --resource-group "$RG" --sku "$SKU" --is-linux -o none
+if ! az appservice plan create --name "${PREFIX}-plan" --resource-group "$RG" --sku "$SKU" --is-linux -o none; then
+  cat <<'HINT'
+
+Plan creation failed. If the error was RequestDisallowedByAzure
+("not accepting new customers"), that region is throttling new
+subscriptions for capacity reasons. Clean up the leftover group and
+retry with a different region:
+
+    az group delete --name $RG --yes --no-wait
+    scripts/azure/provision.sh $RG <region> $PREFIX [sku]
+
+Regions that commonly still accept new customers:
+    northeurope, swedencentral, uksouth, francecentral,
+    germanywestcentral, eastus, eastus2, westus2, centralus, canadacentral
+
+HINT
+  exit 1
+fi
 
 echo "==> Creating API app (${PREFIX}-api)"
 az webapp create --name "${PREFIX}-api" --resource-group "$RG" --plan "${PREFIX}-plan" --runtime "$NODE_RUNTIME" -o none
