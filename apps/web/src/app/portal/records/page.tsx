@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
-import { api, LabResult, Prescription } from '@/lib/api';
+import { api, LabResult, MedicalHistory, Prescription } from '@/lib/api';
 import { LabList, RxList } from '@/components/lists';
 import { AccessDenied } from '@/components/ui';
 
@@ -11,18 +11,59 @@ export default function RecordsPage() {
   const [rx, setRx] = useState<Prescription[] | null>(null);
   const [labs, setLabs] = useState<LabResult[] | null>(null);
 
+  const [history, setHistory] = useState<MedicalHistory | null>(null);
+  const [historyLocked, setHistoryLocked] = useState(false);
+  const [historyJson, setHistoryJson] = useState(
+    '{\n  "conditions": ["Synthetic condition"],\n  "medications": [],\n  "allergies": []\n}'
+  );
+  const [importBusy, setImportBusy] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importNotice, setImportNotice] = useState('');
+
   const load = useCallback(async (): Promise<void> => {
-    const [rxRes, labRes] = await Promise.all([
+    const [rxRes, labRes, histRes] = await Promise.all([
       api<Prescription[]>('/me/prescriptions'),
       api<LabResult[]>('/me/lab-results'),
+      api<MedicalHistory | null>('/me/medical-history'),
     ]);
     setRx(rxRes.ok ? rxRes.data : []);
     setLabs(labRes.ok ? labRes.data : []);
+    if (histRes.status === 402) {
+      setHistoryLocked(true);
+      return;
+    }
+    setHistoryLocked(false);
+    setHistory(histRes.ok ? histRes.data : null);
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  async function importHistory(): Promise<void> {
+    setImportBusy(true);
+    setImportError('');
+    setImportNotice('');
+    let parsed: { conditions?: string[]; medications?: string[]; allergies?: string[] };
+    try {
+      parsed = JSON.parse(historyJson);
+    } catch {
+      setImportBusy(false);
+      setImportError('That is not valid JSON.');
+      return;
+    }
+    const { ok, data } = await api<MedicalHistory>('/me/medical-history', {
+      method: 'POST',
+      body: parsed,
+    });
+    setImportBusy(false);
+    if (!ok) {
+      setImportError(data.error || 'Import failed.');
+      return;
+    }
+    setImportNotice('Medical history imported.');
+    await load();
+  }
 
   const [refillBusy, setRefillBusy] = useState(0);
   const [refillNotice, setRefillNotice] = useState('');
@@ -101,6 +142,64 @@ export default function RecordsPage() {
         </h2>
         {labs === null ? <p className="empty">Loading…</p> : <LabList rows={labs} showImages />}
       </div>
+
+      {historyLocked ? (
+        <div className="panel upsell">
+          <h2>Medical history import</h2>
+          <p className="empty" style={{ marginBottom: 14 }}>
+            Importing your medical history is part of Zero Health Plus.
+          </p>
+          <a className="btn btn-primary" href="/portal/plus">
+            See plans
+          </a>
+        </div>
+      ) : (
+        <div className="panel">
+          <h2>Medical history</h2>
+          {importNotice && <div className="collect-notice">{importNotice}</div>}
+          {history ? (
+            <>
+              <div className="detail-grid">
+                <div>
+                  <div className="lbl">Conditions</div>
+                  <div>{(JSON.parse(history.conditions || '[]') as string[]).join(', ') || 'None recorded'}</div>
+                </div>
+                <div>
+                  <div className="lbl">Medications</div>
+                  <div>{(JSON.parse(history.medications || '[]') as string[]).join(', ') || 'None recorded'}</div>
+                </div>
+                <div>
+                  <div className="lbl">Allergies</div>
+                  <div>{(JSON.parse(history.allergies || '[]') as string[]).join(', ') || 'None recorded'}</div>
+                </div>
+                <div>
+                  <div className="lbl">Imported</div>
+                  <div>{history.created_at}</div>
+                </div>
+              </div>
+              <p className="empty" style={{ marginTop: 12 }}>
+                Import again below to replace it.
+              </p>
+            </>
+          ) : (
+            <p className="empty">No history imported yet.</p>
+          )}
+          <div className="field" style={{ marginTop: 10 }}>
+            <label htmlFor="hist_json">Import history (JSON)</label>
+            <textarea
+              id="hist_json"
+              value={historyJson}
+              onChange={(e) => setHistoryJson(e.target.value)}
+              spellCheck={false}
+              style={{ fontFamily: 'ui-monospace,monospace', fontSize: 13 }}
+            />
+          </div>
+          <div className="err">{importError}</div>
+          <button className="btn btn-primary" onClick={importHistory} disabled={importBusy}>
+            {importBusy ? 'Importing…' : 'Import history'}
+          </button>
+        </div>
+      )}
     </>
   );
 }

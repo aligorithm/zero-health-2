@@ -13,6 +13,8 @@ export interface UserRow {
   address: string | null;
   specialization: string | null;
   license_number: string | null;
+  plus_until: string | null;
+  plus_plan: string | null;
   created_at: string;
 }
 
@@ -85,6 +87,7 @@ export interface AppointmentRow {
   outcome: string | null;
   patient_feedback: string | null;
   rating: number | null;
+  dependant_id: number | null;
 }
 
 export interface AppointmentWithClinicianRow extends AppointmentRow {
@@ -98,6 +101,33 @@ export interface PatientPanelRow {
   email: string;
   phone: string | null;
   active_rx: number;
+}
+
+export interface DependantRow {
+  id: number;
+  guardian_id: number;
+  full_name: string;
+  date_of_birth: string | null;
+  relationship: string | null;
+  created_at: string;
+}
+
+export interface MedicalHistoryRow {
+  id: number;
+  patient_id: number;
+  conditions: string | null;
+  medications: string | null;
+  allergies: string | null;
+  imported_by: number | null;
+  created_at: string;
+}
+
+export interface VisitMessageRow {
+  id: number;
+  appointment_id: number;
+  from_user_id: number;
+  body: string;
+  created_at: string;
 }
 
 export interface WebhookRow {
@@ -266,6 +296,33 @@ export function init(): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS dependants (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      guardian_id INTEGER NOT NULL,
+      full_name TEXT NOT NULL,
+      date_of_birth TEXT,
+      relationship TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS medical_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      patient_id INTEGER NOT NULL,
+      conditions TEXT,
+      medications TEXT,
+      allergies TEXT,
+      imported_by INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS visit_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      appointment_id INTEGER NOT NULL,
+      from_user_id INTEGER NOT NULL,
+      body TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS webhooks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -312,4 +369,7 @@ export function init(): void {
   addColumnIfMissing('users', 'address', 'address TEXT');
   addColumnIfMissing('users', 'specialization', 'specialization TEXT');
   addColumnIfMissing('users', 'license_number', 'license_number TEXT');
+  addColumnIfMissing('users', 'plus_until', 'plus_until TEXT');
+  addColumnIfMissing('users', 'plus_plan', 'plus_plan TEXT');
+  addColumnIfMissing('appointments', 'dependant_id', 'dependant_id INTEGER');
 }

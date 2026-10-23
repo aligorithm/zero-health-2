@@ -170,6 +170,13 @@ export default function AppointmentDetailPage() {
             <div>{appt.status}</div>
           </div>
         </div>
+        {appt.modality === 'video' && (
+          <div className="modal-actions" style={{ justifyContent: 'flex-start' }}>
+            <a className="btn btn-primary btn-sm" href={`/portal/visits/${appt.id}`}>
+              Join video visit
+            </a>
+          </div>
+        )}
         {canManage && appt.status === 'scheduled' && (
           <div className="modal-actions" style={{ justifyContent: 'flex-start' }}>
             <button

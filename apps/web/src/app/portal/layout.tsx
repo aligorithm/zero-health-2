@@ -20,8 +20,10 @@ const NAV: Record<string, NavItem[]> = {
     { href: '/portal/appointments', label: 'Appointments' },
     { href: '/portal/records', label: 'My records' },
     { href: '/portal/messages', label: 'Messages', badge: 'messages' },
+    { href: '/portal/family', label: 'Family' },
     { href: '/portal/lookup', label: 'Record lookup' },
     { href: '/portal/profile', label: 'Profile' },
+    { href: '/portal/plus', label: 'Plus ✦' },
   ],
   doctor: [
     { href: '/portal', label: 'Overview' },

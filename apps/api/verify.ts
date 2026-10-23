@@ -616,6 +616,77 @@ async function main(): Promise<void> {
   const chainAsPatient = await req('POST', '/api/reports/1/pdf', undefined, patient.token);
   check('report export is doctor/admin only', chainAsPatient.status === 403, `HTTP ${chainAsPatient.status}`);
 
+  // --- Zero Health Plus (subscription + gated features) -------------------------
+
+  const plusStatus = await req('GET', '/api/me/subscription', undefined, beta.token);
+  check(
+    'beta starts without plus',
+    plusStatus.status === 200 && plusStatus.body?.active === false && plusStatus.body?.prices?.monthly === 5 && plusStatus.body?.prices?.annual === 50
+  );
+
+  const depBlocked = await req('GET', '/api/dependants', undefined, beta.token);
+  check('dependants gated behind plus', depBlocked.status === 402, `HTTP ${depBlocked.status}`);
+  const histBlocked = await req('GET', '/api/me/medical-history', undefined, beta.token);
+  check('medical history gated behind plus', histBlocked.status === 402, `HTTP ${histBlocked.status}`);
+
+  const declinedCheckout = await req(
+    'POST',
+    '/api/subscription/checkout',
+    { plan: 'monthly', card_number: '4111111111110000', cvv: '123', expiry_date: '12/28' },
+    beta.token
+  );
+  check(
+    'declined card does not grant plus',
+    declinedCheckout.status === 402 && declinedCheckout.body?.failure_reason === 'invalid_card_number'
+  );
+
+  const checkout = await req(
+    'POST',
+    '/api/subscription/checkout',
+    { plan: 'monthly', card_number: '4111111111111111', cvv: '123', expiry_date: '12/28' },
+    beta.token
+  );
+  check(
+    'checkout grants plus via vulnbank',
+    checkout.status === 200 && checkout.body?.active === true && checkout.body?.plan === 'monthly' && typeof checkout.body?.payment?.authorization_code === 'string'
+  );
+
+  const dep = await req('POST', '/api/dependants', { full_name: 'Verify Kiddo', date_of_birth: '2018-03-01', relationship: 'child' }, beta.token);
+  check('plus member adds dependant', dep.status === 200 && dep.body?.full_name === 'Verify Kiddo');
+
+  const depAppt = await req('POST', `/api/dependants/${dep.body.id}/appointments`, { clinician_id: 5, scheduled_for: '2026-12-05T10:00', kind: 'Verify check-up' }, beta.token);
+  check(
+    'books appointment for dependant',
+    depAppt.status === 200 && depAppt.body?.clinician_name === 'Dr. Strange' && depAppt.body?.dependant_name === 'Verify Kiddo'
+  );
+
+  const depList = await req('GET', '/api/dependants', undefined, beta.token);
+  check('lists own dependants', depList.status === 200 && Array.isArray(depList.body) && depList.body.some((d: any) => d.full_name === 'Verify Kiddo'));
+
+  const otherDep = await req('GET', `/api/dependants/${dep.body.id}/appointments`, undefined, patient.token);
+  check('cannot view another user\'s dependants', otherDep.status === 404, `HTTP ${otherDep.status}`);
+
+  const hist = await req('POST', '/api/me/medical-history', { conditions: ['Asthma'], medications: ['Ventolin'], allergies: ['Peanuts'] }, beta.token);
+  check('imports medical history', hist.status === 200 && JSON.parse(hist.body?.conditions || '[]')[0] === 'Asthma');
+
+  const histOther = await req('POST', '/api/me/medical-history', { conditions: ['Injected'], patient_id: 1 }, beta.token);
+  check('history import accepts a client patient_id', histOther.status === 200);
+
+  const apptsBeta = await req('GET', '/api/me/appointments', undefined, beta.token);
+  const apptId = apptsBeta.body.find((a: any) => a.status === 'scheduled')?.id;
+  const visit = await req('GET', `/api/appointments/${apptId}/visit`, undefined, beta.token);
+  check('plus member opens visit room', visit.status === 200 && visit.body?.appointment?.id === apptId && Array.isArray(visit.body?.messages));
+
+  const visitChat = await req('POST', `/api/appointments/${apptId}/visit/messages`, { body: 'Verify room hello' }, beta.token);
+  check('visit chat works', visitChat.status === 200 && visitChat.body?.body === 'Verify room hello');
+
+  const visitEnd = await req('POST', `/api/appointments/${apptId}/visit/end`, undefined, beta.token);
+  check('visit ends', visitEnd.status === 200 && visitEnd.body?.status === 'completed');
+
+  const deltaLogin = await login('patient.delta@example.test');
+  const visitDelta = await req('GET', `/api/appointments/${apptId}/visit`, undefined, deltaLogin.token);
+  check('non-participant blocked from visit room', visitDelta.status === 403, `HTTP ${visitDelta.status}`);
+
   // --- password reset --------------------------------------------------------
 
   const forgot = await req('POST', '/api/auth/forgot-password', { email: 'patient.alpha@example.test' });

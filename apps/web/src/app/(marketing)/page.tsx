@@ -150,6 +150,53 @@ export default function LandingPage() {
         </div>
       </section>
 
+      <section className="section" id="pricing">
+        <div className="section-head">
+          <h2>Zero Health Plus</h2>
+          <p>Care that moves even faster, for the price of a coffee.</p>
+        </div>
+        <div className="grid">
+          <div className="card">
+            <div className="ico">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            </div>
+            <h3>Video consults</h3>
+            <p>Face-to-face visits from any appointment, without leaving the portal.</p>
+          </div>
+          <div className="card">
+            <div className="ico">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="8" r="3"/><path d="M4 20c0-3 2-5 5-5s5 2 5 5"/><circle cx="17" cy="9" r="2.5"/><path d="M14 20c0-2.5 1.5-4 3.5-4s3.5 1.5 3.5 4"/></svg>
+            </div>
+            <h3>Family accounts</h3>
+            <p>Manage appointments and records for your children and dependants.</p>
+          </div>
+          <div className="card">
+            <div className="ico">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 21h16"/></svg>
+            </div>
+            <h3>History import</h3>
+            <p>Bring your medical history into Zero Health in one import.</p>
+          </div>
+        </div>
+        <div className="plan-grid" style={{ marginTop: 26 }}>
+          <div className="plan-card plan-selected" style={{ cursor: 'default' }}>
+            <div className="plan-name">Monthly</div>
+            <div className="plan-price">$5<span>/month</span></div>
+            <div className="s">Everything in Plus, billed monthly</div>
+          </div>
+          <div className="plan-card" style={{ cursor: 'default' }}>
+            <div className="plan-name">Annual</div>
+            <div className="plan-price">$50<span>/year</span></div>
+            <div className="s">Two months free, billed yearly</div>
+          </div>
+        </div>
+        <div className="section-cta">
+          <Link href="/login" className="btn btn-primary">
+            Get Zero Health Plus
+          </Link>
+        </div>
+      </section>
+
       <section className="section" id="blog-teaser">
         <div className="section-head">
           <h2>From the blog</h2>

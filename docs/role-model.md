@@ -47,6 +47,8 @@ Authorization is meant to happen in two layers:
 | O10 | `POST /settings/webhook` | egress allowlist | server fetches any user URL |
 | P1 | portal beacon | no trackers on health surfaces | page views + identity logged |
 | C2 | `POST /reports/:patientId/pdf` | native rendering or execFile argv | patient name/title reach a shell |
+| P2 | `POST /subscription/checkout` | amount derived server-side from the plan | client `amount` field is trusted |
+| P3 | `POST /me/medical-history` | writes only to the caller's history | client `patient_id` selects the target |
 
 The point of the table is that **every** gap is a divergence between this
 documented policy and the implementation — which is exactly the artifact a

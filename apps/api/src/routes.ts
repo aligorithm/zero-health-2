@@ -25,10 +25,14 @@ import type {
   AdminStatsRow,
   PasswordResetTokenRow,
   WebhookRow,
+  DependantRow,
+  MedicalHistoryRow,
+  VisitMessageRow,
 } from './db';
 import { runAgent, llmConfigured } from './agent';
 import lodashSet from 'lodash/set';
 import { sendMail, mailerConfigured, WEB_BASE_URL } from './mailer';
+import { chargeCard, vulnbankConfigured } from './vulnbank';
 
 const router = Router();
 
@@ -113,6 +117,28 @@ function canAccessAppointment(appt: AppointmentWithClinicianRow, user: AuthUser)
   return false;
 }
 
+// --- Zero Health Plus ------------------------------------------------------
+
+const PLUS_PRICES: Record<string, number> = { monthly: 5, annual: 50 };
+
+function plusActive(user: Pick<UserRow, 'plus_until'>): boolean {
+  const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  return Boolean(user.plus_until && user.plus_until > now);
+}
+
+function sendPlusRequired(res: Response, feature: string): void {
+  res.status(402).json({ error: 'Zero Health Plus required', plus_required: true, feature });
+}
+
+function requirePlusPatient(req: Request, res: Response, feature: string): UserRow | null {
+  const user = db.prepare<[number], UserRow>('SELECT * FROM users WHERE id = ?').get(req.user!.id);
+  if (!user || user.role !== 'patient' || !plusActive(user)) {
+    sendPlusRequired(res, feature);
+    return null;
+  }
+  return user;
+}
+
 // --- Auth ------------------------------------------------------------------
 
 interface RegisterBody {
@@ -160,8 +186,8 @@ const PROFILE_COLUMNS =
 
 router.get('/me', authenticate, (req, res) => {
   const u = db
-    .prepare<[number], Omit<UserRow, 'password_hash'>>(
-      `SELECT ${PROFILE_COLUMNS} FROM users WHERE id = ?`
+    .prepare<[number], Omit<UserRow, 'password_hash'> & { plus_until: string | null }>(
+      `SELECT ${PROFILE_COLUMNS}, plus_until FROM users WHERE id = ?`
     )
     .get(req.user!.id);
   if (!u) {
@@ -235,7 +261,7 @@ router.get('/me/appointments', authenticate, (req, res) => {
     .prepare<[number], AppointmentWithClinicianRow>(
       `SELECT a.*, u.full_name AS clinician_name
          FROM appointments a LEFT JOIN users u ON u.id = a.clinician_id
-        WHERE a.patient_id = ? ORDER BY a.scheduled_for`
+        WHERE a.patient_id = ? AND a.dependant_id IS NULL ORDER BY a.scheduled_for`
     )
     .all(req.user!.id);
   res.json(rows);
@@ -708,10 +734,11 @@ router.get('/appointments', authenticate, (req, res) => {
   if (role === 'admin') {
     const rows = db
       .prepare<[], AppointmentWithClinicianRow>(
-        `SELECT a.*, p.full_name AS patient_name, c.full_name AS clinician_name
+        `SELECT a.*, COALESCE(dep.full_name, p.full_name) AS patient_name, c.full_name AS clinician_name
            FROM appointments a
            LEFT JOIN users p ON p.id = a.patient_id
            LEFT JOIN users c ON c.id = a.clinician_id
+           LEFT JOIN dependants dep ON dep.id = a.dependant_id
           ORDER BY a.scheduled_for`
       )
       .all();
@@ -724,10 +751,11 @@ router.get('/appointments', authenticate, (req, res) => {
 function getAppointmentFull(id: string): AppointmentWithClinicianRow | undefined {
   return db
     .prepare<[string], AppointmentWithClinicianRow>(
-      `SELECT a.*, p.full_name AS patient_name, c.full_name AS clinician_name
+      `SELECT a.*, COALESCE(dep.full_name, p.full_name) AS patient_name, c.full_name AS clinician_name
          FROM appointments a
          LEFT JOIN users p ON p.id = a.patient_id
          LEFT JOIN users c ON c.id = a.clinician_id
+         LEFT JOIN dependants dep ON dep.id = a.dependant_id
         WHERE a.id = ?`
     )
     .get(id);
@@ -1058,6 +1086,321 @@ router.get('/debug', (_req, res) => {
     },
     uploads,
   });
+});
+
+// --- Plus subscription ------------------------------------------------------
+
+router.get('/me/subscription', authenticate, (req, res) => {
+  const u = db.prepare<[number], UserRow>('SELECT * FROM users WHERE id = ?').get(req.user!.id);
+  if (!u) {
+    res.status(404).json({ error: 'not found' });
+    return;
+  }
+  res.json({
+    active: plusActive(u),
+    plan: u.plus_plan,
+    until: u.plus_until,
+    prices: PLUS_PRICES,
+    vulnbank_configured: vulnbankConfigured(),
+  });
+});
+
+interface CheckoutBody {
+  plan?: string;
+  amount?: number;
+  card_number?: string;
+  cvv?: string;
+  expiry_date?: string;
+}
+
+router.post('/subscription/checkout', authenticate, async (req, res) => {
+  const user = db.prepare<[number], UserRow>('SELECT * FROM users WHERE id = ?').get(req.user!.id);
+  if (!user) {
+    res.status(404).json({ error: 'not found' });
+    return;
+  }
+  const b = (req.body || {}) as CheckoutBody;
+  const plan = b.plan || '';
+  if (!PLUS_PRICES[plan]) {
+    res.status(400).json({ error: 'plan must be monthly or annual' });
+    return;
+  }
+  if (!b.card_number || !b.cvv || !b.expiry_date) {
+    res.status(400).json({ error: 'card_number, cvv, expiry_date required' });
+    return;
+  }
+  if (!vulnbankConfigured()) {
+    res.status(503).json({
+      error: 'Payment provider is not configured. Set VULNBANK_URL and VULNBANK_MERCHANT_API_KEY on the API.',
+    });
+    return;
+  }
+
+  const amount = typeof b.amount === 'number' && b.amount > 0 ? b.amount : PLUS_PRICES[plan];
+  let charge;
+  try {
+    charge = await chargeCard({
+      amount,
+      plan,
+      cardNumber: b.card_number,
+      cvv: b.cvv,
+      expiryDate: b.expiry_date,
+      orderId: `zh-plus-${user.id}-${Date.now()}`,
+    });
+  } catch (e) {
+    res.status(502).json({ error: 'Could not reach Vulnbank: ' + (e as Error).message });
+    return;
+  }
+
+  if (!charge.approved) {
+    res.status(402).json({
+      error: 'Payment declined by Vulnbank',
+      failure_reason: charge.failureReason,
+    });
+    return;
+  }
+
+  db.prepare(
+    "UPDATE users SET plus_until = datetime('now', ?), plus_plan = ? WHERE id = ?"
+  ).run(plan === 'annual' ? '+1 year' : '+1 month', plan, user.id);
+
+  const updated = db.prepare<[number], UserRow>('SELECT * FROM users WHERE id = ?').get(user.id);
+  sendMail(
+    user.email,
+    'Welcome to Zero Health Plus',
+    `Hi ${user.full_name},
+
+Your ${plan} Plus subscription is active until ${updated?.plus_until}.
+
+Paid with your Vulnbank card. Authorization code: ${charge.authorizationCode}.
+
+Zero Health`
+  );
+
+  res.json({
+    active: true,
+    plan,
+    until: updated?.plus_until,
+    payment: {
+      amount,
+      currency: 'USD',
+      status: 'completed',
+      authorization_code: charge.authorizationCode,
+      vulnbank_payment_id: charge.paymentId,
+    },
+  });
+});
+
+// --- Family accounts (Plus) --------------------------------------------------
+
+router.get('/dependants', authenticate, (req, res) => {
+  const user = requirePlusPatient(req, res, 'family accounts');
+  if (!user) return;
+  const rows = db
+    .prepare<[number], DependantRow>(
+      'SELECT * FROM dependants WHERE guardian_id = ? ORDER BY id'
+    )
+    .all(user.id);
+  res.json(rows);
+});
+
+router.post('/dependants', authenticate, (req, res) => {
+  const user = requirePlusPatient(req, res, 'family accounts');
+  if (!user) return;
+  const b = (req.body || {}) as { full_name?: string; date_of_birth?: string; relationship?: string };
+  if (!b.full_name || !b.full_name.trim()) {
+    res.status(400).json({ error: 'full_name required' });
+    return;
+  }
+  const info = db
+    .prepare<[number, string, string | null, string | null]>(
+      'INSERT INTO dependants (guardian_id, full_name, date_of_birth, relationship) VALUES (?, ?, ?, ?)'
+    )
+    .run(user.id, b.full_name.trim(), b.date_of_birth?.trim() || null, b.relationship?.trim() || null);
+  const created = db.prepare<[number], DependantRow>('SELECT * FROM dependants WHERE id = ?').get(
+    Number(info.lastInsertRowid)
+  );
+  res.json(created);
+});
+
+function getDependantGuardian(depId: string): DependantRow | undefined {
+  return db.prepare<[string], DependantRow>('SELECT * FROM dependants WHERE id = ?').get(depId);
+}
+
+router.post('/dependants/:id/appointments', authenticate, (req, res) => {
+  const user = requirePlusPatient(req, res, 'family accounts');
+  if (!user) return;
+  const dep = getDependantGuardian(req.params.id);
+  if (!dep || dep.guardian_id !== user.id) {
+    res.status(404).json({ error: 'dependant not found' });
+    return;
+  }
+  const b = (req.body || {}) as { clinician_id?: number; scheduled_for?: string; kind?: string; modality?: string };
+  if (!b.clinician_id || !b.scheduled_for || !b.kind) {
+    res.status(400).json({ error: 'clinician_id, scheduled_for, kind required' });
+    return;
+  }
+  const clinician = db
+    .prepare<[number], UserRow>("SELECT * FROM users WHERE id = ? AND role IN ('doctor', 'labtech')")
+    .get(b.clinician_id);
+  if (!clinician) {
+    res.status(400).json({ error: 'unknown clinician' });
+    return;
+  }
+  const info = db
+    .prepare<[number, number, number, string, string, string]>(
+      "INSERT INTO appointments (patient_id, dependant_id, clinician_id, scheduled_for, kind, modality, status) VALUES (?, ?, ?, ?, ?, ?, 'scheduled')"
+    )
+    .run(user.id, dep.id, b.clinician_id, b.scheduled_for, b.kind, b.modality || 'video');
+  const created = db
+    .prepare<[number], AppointmentWithClinicianRow>(
+      `SELECT a.*, c.full_name AS clinician_name
+         FROM appointments a LEFT JOIN users c ON c.id = a.clinician_id
+        WHERE a.id = ?`
+    )
+    .get(Number(info.lastInsertRowid));
+  res.json({ ...created, dependant_name: dep.full_name });
+});
+
+router.get('/dependants/:id/appointments', authenticate, (req, res) => {
+  const user = requirePlusPatient(req, res, 'family accounts');
+  if (!user) return;
+  const dep = getDependantGuardian(req.params.id);
+  if (!dep || dep.guardian_id !== user.id) {
+    res.status(404).json({ error: 'dependant not found' });
+    return;
+  }
+  const rows = db
+    .prepare<[number], AppointmentWithClinicianRow>(
+      `SELECT a.*, c.full_name AS clinician_name
+         FROM appointments a LEFT JOIN users c ON c.id = a.clinician_id
+        WHERE a.dependant_id = ? ORDER BY a.scheduled_for`
+    )
+    .all(dep.id);
+  res.json(rows.map((r) => ({ ...r, dependant_name: dep.full_name })));
+});
+
+// --- Medical history import (Plus) -------------------------------------------
+
+interface HistoryBody {
+  conditions?: string[];
+  medications?: string[];
+  allergies?: string[];
+  patient_id?: number;
+}
+
+router.post('/me/medical-history', authenticate, (req, res) => {
+  const user = requirePlusPatient(req, res, 'medical history import');
+  if (!user) return;
+  const b = (req.body || {}) as HistoryBody;
+  const targetId = b.patient_id || user.id;
+  const clean = (arr: unknown): string => JSON.stringify(
+    (Array.isArray(arr) ? arr : []).map((x) => String(x).slice(0, 200)).slice(0, 50)
+  );
+  db.prepare('DELETE FROM medical_history WHERE patient_id = ?').run(targetId);
+  const info = db
+    .prepare<[number, string, string, string, number]>(
+      'INSERT INTO medical_history (patient_id, conditions, medications, allergies, imported_by) VALUES (?, ?, ?, ?, ?)'
+    )
+    .run(targetId, clean(b.conditions), clean(b.medications), clean(b.allergies), user.id);
+  const created = db
+    .prepare<[number], MedicalHistoryRow>('SELECT * FROM medical_history WHERE id = ?')
+    .get(Number(info.lastInsertRowid));
+  res.json(created);
+});
+
+router.get('/me/medical-history', authenticate, (req, res) => {
+  const user = requirePlusPatient(req, res, 'medical history import');
+  if (!user) return;
+  const row = db
+    .prepare<[number], MedicalHistoryRow>(
+      'SELECT * FROM medical_history WHERE patient_id = ? ORDER BY id DESC LIMIT 1'
+    )
+    .get(user.id);
+  res.json(row || null);
+});
+
+// --- Video visit rooms (Plus) -------------------------------------------------
+
+router.get('/appointments/:id/visit', authenticate, (req, res) => {
+  const appt = getAppointmentFull(req.params.id);
+  if (!appt) {
+    res.status(404).json({ error: 'not found' });
+    return;
+  }
+  if (!canAccessAppointment(appt, req.user!)) {
+    res.status(403).json({ error: 'access denied' });
+    return;
+  }
+  const user = db.prepare<[number], UserRow>('SELECT * FROM users WHERE id = ?').get(req.user!.id);
+  if (!plusActive(user!)) {
+    sendPlusRequired(res, 'video visits');
+    return;
+  }
+  const messages = db
+    .prepare<[number], VisitMessageRow>(
+      'SELECT v.*, u.full_name AS from_name FROM visit_messages v JOIN users u ON u.id = v.from_user_id WHERE v.appointment_id = ? ORDER BY v.id'
+    )
+    .all(appt.id);
+  const dep = appt.dependant_id
+    ? db.prepare<[number], DependantRow>('SELECT * FROM dependants WHERE id = ?').get(appt.dependant_id)
+    : undefined;
+  res.json({
+    appointment: { ...appt, dependant_name: dep?.full_name || null },
+    messages,
+  });
+});
+
+router.post('/appointments/:id/visit/messages', authenticate, (req, res) => {
+  const appt = getAppointmentFull(req.params.id);
+  if (!appt) {
+    res.status(404).json({ error: 'not found' });
+    return;
+  }
+  if (!canAccessAppointment(appt, req.user!)) {
+    res.status(403).json({ error: 'access denied' });
+    return;
+  }
+  const user = db.prepare<[number], UserRow>('SELECT * FROM users WHERE id = ?').get(req.user!.id);
+  if (!plusActive(user!)) {
+    sendPlusRequired(res, 'video visits');
+    return;
+  }
+  const body = String((req.body || {}).body || '').trim();
+  if (!body) {
+    res.status(400).json({ error: 'body required' });
+    return;
+  }
+  const info = db
+    .prepare<[number, number, string]>(
+      'INSERT INTO visit_messages (appointment_id, from_user_id, body) VALUES (?, ?, ?)'
+    )
+    .run(appt.id, req.user!.id, body);
+  const created = db
+    .prepare<[number], VisitMessageRow & { from_name?: string }>(
+      'SELECT v.*, u.full_name AS from_name FROM visit_messages v JOIN users u ON u.id = v.from_user_id WHERE v.id = ?'
+    )
+    .get(Number(info.lastInsertRowid));
+  res.json(created);
+});
+
+router.post('/appointments/:id/visit/end', authenticate, (req, res) => {
+  const appt = getAppointmentFull(req.params.id);
+  if (!appt) {
+    res.status(404).json({ error: 'not found' });
+    return;
+  }
+  if (!canAccessAppointment(appt, req.user!)) {
+    res.status(403).json({ error: 'access denied' });
+    return;
+  }
+  const user = db.prepare<[number], UserRow>('SELECT * FROM users WHERE id = ?').get(req.user!.id);
+  if (!plusActive(user!)) {
+    sendPlusRequired(res, 'video visits');
+    return;
+  }
+  db.prepare<[number]>("UPDATE appointments SET status = 'completed' WHERE id = ?").run(appt.id);
+  res.json(getAppointmentFull(req.params.id));
 });
 
 // --- Search ----------------------------------------------------------------

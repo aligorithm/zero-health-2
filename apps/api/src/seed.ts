@@ -83,9 +83,9 @@ function hashPassword(pw: string): string {
 }
 
 function reset(): void {
-  db.exec('DELETE FROM users; DELETE FROM prescriptions; DELETE FROM lab_results; DELETE FROM messages; DELETE FROM appointments; DELETE FROM job_applications; DELETE FROM chat_history; DELETE FROM password_reset_tokens;');
+  db.exec('DELETE FROM users; DELETE FROM prescriptions; DELETE FROM lab_results; DELETE FROM messages; DELETE FROM appointments; DELETE FROM job_applications; DELETE FROM chat_history; DELETE FROM password_reset_tokens; DELETE FROM dependants; DELETE FROM medical_history; DELETE FROM visit_messages;');
   // Reset AUTOINCREMENT counters so ids stay deterministic across re-seeds.
-  db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','prescriptions','lab_results','messages','appointments','job_applications','chat_history','password_reset_tokens');");
+  db.exec("DELETE FROM sqlite_sequence WHERE name IN ('users','prescriptions','lab_results','messages','appointments','job_applications','chat_history','password_reset_tokens','dependants','medical_history','visit_messages');");
 }
 
 function seed(): void {
@@ -97,11 +97,11 @@ function seed(): void {
   for (const f of fs.readdirSync(UPLOADS_DIR)) fs.unlinkSync(path.join(UPLOADS_DIR, f));
 
   const insertUser = db.prepare<
-    [string, string, string, string, string | null, string | null, string | null, string | null, string | null, string | null]
+    [string, string, string, string, string | null, string | null, string | null, string | null, string | null, string | null, string | null, string | null]
   >(
     `INSERT INTO users
-       (email, password_hash, full_name, role, phone, date_of_birth, gender, address, specialization, license_number)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       (email, password_hash, full_name, role, phone, date_of_birth, gender, address, specialization, license_number, plus_until, plus_plan)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   );
 
   interface SeedUser {
@@ -114,10 +114,11 @@ function seed(): void {
     address?: string;
     specialization?: string;
     license?: string;
+    plus?: boolean;
   }
 
   const users: SeedUser[] = [
-    { email: 'patient.alpha@example.test', name: 'Patience Jo Nathan', role: 'patient', phone: '+1-555-0142', dob: '1988-04-12', gender: 'female', address: '14 Meadow Lane, Springford' },
+    { email: 'patient.alpha@example.test', name: 'Patience Jo Nathan', role: 'patient', phone: '+1-555-0142', dob: '1988-04-12', gender: 'female', address: '14 Meadow Lane, Springford', plus: true },
     { email: 'patient.beta@example.test', name: 'Tinu Buhari', role: 'patient', phone: '+1-555-0177', dob: '1979-11-03', gender: 'male', address: '82 Harbor Street, Eastvale' },
     { email: 'patient.gamma@example.test', name: 'Saul Goodman', role: 'patient', phone: '+1-555-0126', dob: '1994-06-25', gender: 'male', address: '7 Willow Court, Northgate' },
     { email: 'patient.delta@example.test', name: 'David Okafor', role: 'patient', phone: '+1-555-0198', dob: '1965-02-18', gender: 'male', address: '230 Ridgeway Avenue, Westbrook' },
@@ -144,8 +145,15 @@ function seed(): void {
       u.gender || null,
       u.address || null,
       u.specialization || null,
-      u.license || null
+      u.license || null,
+      null,
+      null
     );
+    if (u.plus) {
+      db.prepare(
+        "UPDATE users SET plus_until = datetime('now', '+1 year'), plus_plan = 'annual' WHERE id = ?"
+      ).run(Number(info.lastInsertRowid));
+    }
     ids[u.email] = Number(info.lastInsertRowid);
   }
 

@@ -1,8 +1,57 @@
+export interface SubscriptionStatus {
+  active: boolean;
+  plan: string | null;
+  until: string | null;
+  prices: Record<string, number>;
+  vulnbank_configured: boolean;
+}
+
+export interface CheckoutResult {
+  active: boolean;
+  plan: string;
+  until: string;
+  payment: {
+    amount: number;
+    currency: string;
+    status: string;
+    authorization_code: string;
+    vulnbank_payment_id?: number;
+  };
+}
+
+export interface Dependant {
+  id: number;
+  guardian_id: number;
+  full_name: string;
+  date_of_birth: string | null;
+  relationship: string | null;
+  created_at: string;
+}
+
+export interface MedicalHistory {
+  id: number;
+  patient_id: number;
+  conditions: string | null;
+  medications: string | null;
+  allergies: string | null;
+  created_at: string;
+}
+
+export interface VisitMessage {
+  id: number;
+  appointment_id: number;
+  from_user_id: number;
+  body: string;
+  created_at: string;
+  from_name?: string;
+}
+
 export interface User {
   id: number;
   email: string;
   full_name: string;
   role: string;
+  plus_until?: string | null;
   phone?: string | null;
   date_of_birth?: string | null;
   gender?: string | null;
@@ -60,6 +109,8 @@ export interface Appointment {
   outcome: string | null;
   patient_feedback: string | null;
   rating?: number | null;
+  dependant_id?: number | null;
+  dependant_name?: string | null;
 }
 
 export interface Message {

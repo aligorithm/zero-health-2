@@ -58,7 +58,11 @@ The learning objective is always *find it and fix it*, never *maximize damage*.
 - **Reports**: doctors and admins generate printable medical reports.
 - **Admin console**: user provisioning (create, role change, delete), system
   statistics, and the job applications inbox.
-- **Public site**: marketing landing page, satirical job board, and blog.
+- **Zero Health Plus** ($5/month, $50/year, paid with a Vulnbank card
+  through the Vulnbank Merchant Payment API): video consult rooms, family /
+  dependant accounts with their own bookings, and medical history import.
+- **Public site**: marketing landing page with Plus pricing, satirical job
+  board, and blog.
 
 ## Safety guardrails (built in)
 

@@ -27,6 +27,8 @@ All data is synthetic. The app binds to localhost and refuses public exposure
 | [O08](O08-unverified-uploads.md) | Uploads never content-verified | A08 | extension-only trust on clinical files |
 | [O10](O10-webhook-ssrf.md) | Webhook SSRF | A10 | server POSTs to any user-chosen URL |
 | [P1](P1-tracking-pixel.md) | Tracking pixel on the portal | Privacy (HIPAA) | Kaiser / Cerebral incident class |
+| [P2](P2-plus-checkout-amount-trust.md) | Client-trusted price in Plus checkout | A04 / business logic | subscription revenue bypass |
+| [P3](P3-history-import-bola.md) | History import trusts client patient_id | A01 (BOLA write path) | tampering with clinical records |
 | [C1](C1-bulk-access-and-exfiltration-class.md) | Bulk access / exfiltration (defensive) | A01 / API4 | mass record disclosure |
 | [C2](C2-command-injection-report-export.md) | Command injection in report export (server takeover) | A03 | stored + direct command execution |
 
