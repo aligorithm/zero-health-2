@@ -135,19 +135,17 @@ endpoint errors or times out, the agent answers 502.
 
 ## Email
 
-Configure SMTP and the lab sends real email for password resets, appointment
-confirmations, and prescription and lab-result notifications:
+Email is delivered through the [Resend](https://resend.com) API: password
+resets, appointment confirmations, refill notifications, and lab-result
+notifications.
 
 ```bash
-SMTP_HOST=localhost          # or your mail server
-SMTP_PORT=587                # 25, 465 (implicit TLS), or 587 (STARTTLS)
-SMTP_USER=                   # optional
-SMTP_PASS=                   # optional
-MAIL_FROM="Zero Health <no-reply@yourdomain>"
-WEB_BASE_URL=http://127.0.0.1:3000   # used for links inside emails
+MAIL_API_KEY=re_...                       # Resend API key
+MAIL_FROM="Zero Health <no-reply@yourdomain>"   # must be a verified Resend sender/domain
+WEB_BASE_URL=https://zh.academy.exploit-forge.com   # used for links inside emails
 ```
 
-Without SMTP, every email is printed to the API console so the flows stay
+Without a key, every email is printed to the API console so the flows stay
 demonstrable offline.
 
 ## Password reset
