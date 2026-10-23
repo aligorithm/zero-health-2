@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
-# Boot script for App Service: App Service expects the app to listen on
-# $PORT on all interfaces. Also works locally:
-#   API_ORIGIN=http://127.0.0.1:4011 PORT=3001 bash start-azure.sh
+# Boot script for App Service: runs the standalone Next.js server bundle.
+# App Service expects the app to listen on $PORT on all interfaces.
+# Also works locally: API_ORIGIN=http://127.0.0.1:4010 PORT=3002 bash start-azure.sh
 set -e
 
-exec node ./node_modules/next/dist/bin/next start -H 0.0.0.0 -p "${PORT:-8080}"
+export HOSTNAME="0.0.0.0"
+export PORT="${PORT:-8080}"
+exec node server.js

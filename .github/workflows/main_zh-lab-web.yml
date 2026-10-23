@@ -23,23 +23,20 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: npm install and build
+      - name: npm install and build (standalone output)
         working-directory: apps/web
         run: |
           npm ci
           npm run build
-          npm prune --omit=dev
+          cp -r .next/static .next/standalone/.next/static
+          cp start-azure.sh .next/standalone/start-azure.sh
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: |
-            apps/web/.next
-            apps/web/node_modules
-            apps/web/package.json
-            apps/web/next.config.mjs
-            apps/web/start-azure.sh
+          path: apps/web/.next/standalone
+          include-hidden-files: true
 
   deploy:
     runs-on: ubuntu-latest

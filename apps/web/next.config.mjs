@@ -1,7 +1,9 @@
 /** @type {import('next').NextConfig} */
-// /api/* is proxied to the Express backend by src/app/api/[...path]/route.ts.
-// Override the backend origin at runtime with the API_ORIGIN env var
-// (default: http://127.0.0.1:4000).
-const nextConfig = {};
+// output: 'standalone' produces .next/standalone with a minimal server bundle
+// (server.js + only the node_modules the server actually needs) for
+// deployment. The API proxy lives in src/app/api/[...path]/route.ts.
+const nextConfig = {
+  output: 'standalone',
+};
 
 export default nextConfig;
