@@ -14,9 +14,6 @@
 #   database -> /home/site/data/zero-health.sqlite
 #   uploads  -> /home/site/uploads
 #
-# IMPORTANT: this deploys an intentionally vulnerable application to a public
-# URL. Run scripts/azure/restrict-access.sh afterwards (or enable Easy Auth)
-# before handing the URL to students.
 
 set -euo pipefail
 
@@ -26,7 +23,6 @@ PREFIX="${3:?usage: provision.sh <resource-group> <location> <app-prefix> [sku]}
 SKU="${4:-F1}"
 
 NODE_RUNTIME="${NODE_RUNTIME:-NODE:22-lts}"
-JWT_SECRET="$(openssl rand -hex 32)"
 
 echo "==> Creating resource group $RG in $LOCATION"
 az group create --name "$RG" --location "$LOCATION" -o none
@@ -42,7 +38,6 @@ az webapp config appsettings set --name "${PREFIX}-api" --resource-group "$RG" -
   UPLOADS_DIR="/home/site/uploads" \
   HOST="0.0.0.0" \
   I_UNDERSTAND_THIS_IS_INSECURE="1" \
-  JWT_SECRET="$JWT_SECRET" \
   -o none
 az webapp config set --name "${PREFIX}-api" --resource-group "$RG" --startup-file "bash start-api.sh" -o none
 
@@ -81,11 +76,7 @@ Provisioned. Next steps:
        az webapp config appsettings set --name ${PREFIX}-api --resource-group $RG --settings \\
          SMTP_HOST="..." SMTP_PORT="587" SMTP_USER="..." SMTP_PASS="..."
 
-3. LOCK IT DOWN (this is a deliberately vulnerable app on a public URL):
-       scripts/azure/restrict-access.sh ${PREFIX}-api $RG <student-cidr>...
-       scripts/azure/restrict-access.sh ${PREFIX}-web $RG <student-cidr>...
-
-4. Push to main. GitHub Actions deploys both apps; the API seeds itself on
+3. Push to main. GitHub Actions deploys both apps; the API seeds itself on
    first boot. URLs:
        https://${PREFIX}-api.azurewebsites.net
        https://${PREFIX}-web.azurewebsites.net

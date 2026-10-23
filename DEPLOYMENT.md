@@ -31,11 +31,11 @@ NODE_RUNTIME=NODE:22-lts scripts/azure/provision.sh zh-lab-rg westeurope zh-lab 
 ```
 
 This creates both apps, points data at persistent paths
-(`/home/site/data`, `/home/site/uploads`), sets a random `JWT_SECRET`
-(instead of the public lab default), sets
-`I_UNDERSTAND_THIS_IS_INSECURE=1` + `HOST=0.0.0.0` (required for the app to
-accept traffic on App Service — the API refuses non-local binding unless you
-opt in), and exports the publish profiles GitHub Actions needs.
+(`/home/site/data`, `/home/site/uploads`), sets `HOST=0.0.0.0` +
+`I_UNDERSTAND_THIS_IS_INSECURE=1` (required for the app to accept traffic on
+App Service — the API refuses non-local binding unless you opt in), and
+exports the publish profiles GitHub Actions needs. The API signs tokens
+with its built-in lab secret.
 
 ## 2. Wire up GitHub
 
@@ -69,22 +69,6 @@ az webapp config appsettings set --name zh-lab-api --resource-group zh-lab-rg --
 Without these, the agent chat answers 503 and email is printed to the log
 (`az webapp log tail --name zh-lab-api --resource-group zh-lab-rg`).
 
-## 5. Lock it down (do this before sharing the URL)
-
-This is a deliberately vulnerable app: IDOR, SQL injection, an RCE endpoint,
-and an unguarded admin list. On a public `*.azurewebsites.net` URL, anyone
-who finds it owns it. Restrict both apps to your students' networks:
-
-```bash
-scripts/azure/restrict-access.sh zh-lab-api zh-lab-rg <student-cidr>...
-scripts/azure/restrict-access.sh zh-lab-web zh-lab-rg <student-cidr>...
-```
-
-The restrictions apply to the public site only — the deployment (SCM)
-endpoint stays open so Actions can keep deploying. For an account-based gate
-instead of IP allowlists, enable App Service **Authentication** (Easy Auth) in
-the portal on both apps.
-
 ## Operating the lab
 
 - **Logs**: `az webapp log tail --name zh-lab-api --resource-group zh-lab-rg`
@@ -114,4 +98,3 @@ the portal on both apps.
 | App restarts in a loop, health never green | Check logs with `az webapp log tail`; most commonly a wrong startup file (`bash start-api.sh` / `bash start-azure.sh`). |
 | Agent chat returns 503 | `AGENT_LLM_*` app settings not set (expected until you configure a model). |
 | Reset link never arrives | SMTP not configured — the email is in the API log instead (by design). |
-| Deploy works but site 403s | Access restrictions are on — you're outside the allowlist. |

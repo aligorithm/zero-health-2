@@ -161,8 +161,7 @@ users.
 
 See [`DEPLOYMENT.md`](DEPLOYMENT.md): two free (F1) Azure App Service apps,
 auto-deployed by GitHub Actions on every push to `main`, at $0/month with no
-feature loss. Read the security section there before exposing the URL —
-this is a deliberately vulnerable application.
+feature loss.
 
 ## Finding the flaws
 
